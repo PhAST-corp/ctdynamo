@@ -11,6 +11,7 @@
 
     <modules>
         <module>runtime</module>
+        <module>processor</module>
     </modules>
 
     <distributionManagement>
