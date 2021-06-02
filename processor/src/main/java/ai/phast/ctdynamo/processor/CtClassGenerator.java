@@ -563,7 +563,7 @@ public class CtClassGenerator {
                 builder.addNamedCode("map.put($" + attrNameParam + ":S, " + buildAttributeEncodeExpression(attributeName, null, formatParams) + ");\n", formatParams);
             } else {
                 // Non-primitives. May be null
-                var varName = upcaseFirst("v", attributeName);  // Prepend a "v" and upcase to make sure it is not a reserved word, or the name "map" or "value"
+                var varName = getUniqueId("v");
                 builder.addStatement("$T " + varName + " = value." + entry.getValue().getGetterName() + "()", TypeName.get(entry.getValue().returnType));
                 if (attributeName.equals(partitionKeyAttribute) || attributeName.equals(sortKeyAttribute)) {
                     builder.beginControlFlow("if (" + varName + " == null)")
@@ -942,10 +942,13 @@ public class CtClassGenerator {
             } else if (typeTools.types.isSubtype(returnType, typeTools.listMirror) || typeTools.types.isSubtype(returnType, typeTools.setMirror)) {
                 var innerType = ((DeclaredType)returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
+                var codecType = getUniqueId("t");
                 var collectors = getUniqueId("t");
                 formatData.put(collectors, Collectors.class);
+                formatData.put(codecType, DynamoCodec.class);
                 return "$" + avId + ":T.builder().l(" + valueVar + ".stream()"
-                           + ".map(" + tmpVar + " -> " + buildAttributeEncodeExpression(tmpVar, null, innerType, formatData, element) + ")"
+                           + ".map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
+                           + buildAttributeEncodeExpression(tmpVar, null, innerType, formatData, element) + ")"
                            + ".collect($" + collectors + ":T.toList())).build()";
             } else if (typeTools.types.isSubtype(returnType, typeTools.enumMirror)) {
                 return "$" + avId + ":T.builder().s(" + valueVar + ".name()).build()";
@@ -1014,9 +1017,12 @@ public class CtClassGenerator {
                 var innerType = ((DeclaredType)returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
                 var collectors = getUniqueId("t");
+                var boolType = getUniqueId("t");
                 formatData.put(collectors, Collectors.class);
+                formatData.put(boolType, Boolean.class);
                 return valueVar + ".l().stream()"
-                           + ".map(" + tmpVar + " -> " + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData) + ")"
+                           + ".map(" + tmpVar + " -> " + tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
+                           + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData) + ")"
                            + ".collect($" + collectors + ":T." + collectorFunc + "())";
             } else if (typeTools.isNumber(returnType)) {
                 formatData.put(typeId, returnType);
