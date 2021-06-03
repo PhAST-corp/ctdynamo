@@ -277,15 +277,7 @@ public class CtClassGenerator {
                                        .addStatement("return new $T(getClient(), getAsyncClient(), getTableName())", name)
                                        .build());
         }
-
-        // Add the member variables for the codecs we need. This must be done after all methods are built, because building
-        // methods may find more codecs we need.
-        for (var codecEntry : codecClassToCodecVar.entrySet()) {
-            var field = FieldSpec.builder(codecEntry.getKey(), codecEntry.getValue(),
-                Modifier.PRIVATE, Modifier.FINAL, Modifier.STATIC)
-                            .initializer(CodeBlock.builder().add("new $T()", codecEntry.getKey()).build());
-            classBuilder.addField(field.build());
-        }
+        addCodecFields(classBuilder);
 
         buildHelperFunctions(classBuilder);
 
@@ -340,14 +332,9 @@ public class CtClassGenerator {
         var classBuilder = TypeSpec.classBuilder(itemType.getSimpleName() + "DynamoCodec")
                                .addModifiers(Modifier.PUBLIC)
                                .superclass(ParameterizedTypeName.get(codecType));
-        for (var codecEntry: codecClassToCodecVar.entrySet()) {
-            var field = FieldSpec.builder(codecEntry.getKey(), codecEntry.getValue(),
-                Modifier.PRIVATE, Modifier.FINAL)
-                            .initializer(CodeBlock.builder().add("new $T()", codecEntry.getKey()).build());
-            classBuilder.addField(field.build());
-        }
         classBuilder.addMethod(buildEncoderMethod(true))
             .addMethod(buildDecoderMethod(true));
+        addCodecFields(classBuilder);
         var qualifiedName = itemType.getQualifiedName().toString();
         var packageSplit = qualifiedName.lastIndexOf('.');
 
@@ -368,6 +355,20 @@ public class CtClassGenerator {
 
         for (var pair : avToArrayHelpersNeeded) {
             classBuilder.addMethod(buildAvToArrayHelperMethod(pair.getTypeMirror()));
+        }
+    }
+
+    /**
+     * Add the member variables for the codecs we need. This must be done after all methods are built, because building
+     * methods may find more codecs we need.
+     * @param classBuilder The builder for the class
+     */
+    private void addCodecFields(TypeSpec.Builder classBuilder) {
+        for (var codecEntry : codecClassToCodecVar.entrySet()) {
+            var field = FieldSpec.builder(codecEntry.getKey(), codecEntry.getValue(),
+                Modifier.PRIVATE, Modifier.FINAL, Modifier.STATIC)
+                            .initializer(CodeBlock.builder().add("new $T()", codecEntry.getKey()).build());
+            classBuilder.addField(field.build());
         }
     }
 
@@ -1020,7 +1021,7 @@ public class CtClassGenerator {
             }
             if (typeTools.equal(returnType, typeTools.stringMirror)) {
                 return wrapInAttributeValue(toBareString, valueVar, "s", avId);
-            } else if (returnType.getKind().equals(TypeKind.ARRAY)) {
+            } else if (returnType.getKind() == TypeKind.ARRAY) {
                 if (toBareString) {
                     throw new CtException("Cannot convert an array to a plain string", element);
                 }
@@ -1178,11 +1179,11 @@ public class CtClassGenerator {
             }
             if (typeTools.equal(returnType, typeTools.stringMirror)) {
                 return (bareString ? valueVar : valueVar + ".s()");
-            } else if (returnType.getKind().equals(TypeKind.ARRAY)) {
+            } else if (returnType.getKind() == TypeKind.ARRAY) {
                 if (bareString) {
                     throw new CtException("Cannot convert a bare string value to an array");
                 }
-                var innerType = returnType.getKind().equals(TypeKind.ARRAY) ? ((ArrayType) returnType).getComponentType()
+                var innerType = returnType.getKind() == TypeKind.ARRAY ? ((ArrayType) returnType).getComponentType()
                         : ((DeclaredType) returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
                 var boolType = getUniqueId("t");
@@ -1204,7 +1205,7 @@ public class CtClassGenerator {
                     throw new CtException("Cannot convert a bare string value to a list or set");
                 }
                 var collectorFunc = (typeTools.types.isSubtype(returnType, typeTools.listMirror) ? "toList" : "toSet");
-                var innerType = returnType.getKind().equals(TypeKind.ARRAY) ? ((ArrayType) returnType).getComponentType()
+                var innerType = returnType.getKind() == TypeKind.ARRAY ? ((ArrayType) returnType).getComponentType()
                         : ((DeclaredType) returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
                 var boolType = getUniqueId("t");

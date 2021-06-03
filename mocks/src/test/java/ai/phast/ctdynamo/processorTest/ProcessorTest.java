@@ -74,50 +74,50 @@ public class ProcessorTest {
         var inner4 = new ArrayInnerItem(new double[3], new Integer[5]);
 
         var outer1 = new ArrayOuterItem(new int[]{1, 2, 3}, new ArrayInnerItem[]{inner1},
-                new String[]{"string1", "string2"},
-                new boolean[][]{
-                        new boolean[]{true, false, false},
-                        new boolean[]{true, false, true},
-                        new boolean[]{false, false, false}
-                },
-                new short[][][]{
-                        new short[][]{new short[]{1,2,3}, new short[]{1,2}},
-                        new short[][]{new short[]{}, new short[]{1,25,6}},
-                        new short[][]{new short[]{1,2,3}, new short[]{1,2}, new short[]{1,-3,5,7}}
-                }, 1, "ind1", "sortInd1");
+            new String[]{"string1", "string2"},
+            new boolean[][]{
+                new boolean[]{true, false, false},
+                new boolean[]{true, false, true},
+                new boolean[]{false, false, false}
+            },
+            new short[][][]{
+                new short[][]{new short[]{1, 2, 3}, new short[]{1, 2}},
+                new short[][]{new short[]{}, new short[]{1, 25, 6}},
+                new short[][]{new short[]{1, 2, 3}, new short[]{1, 2}, new short[]{1, -3, 5, 7}}
+            }, 1, "ind1", "sortInd1");
 
         var outer2 = new ArrayOuterItem(new int[]{}, new ArrayInnerItem[]{inner2, inner4, null},
-                new String[]{"string1", null},
-                new boolean[][]{
-                        new boolean[]{true, true, false},
-                        new boolean[]{false, true},
-                        null
-                },
-                new short[][][]{
-                new short[][]{new short[]{1,2,3}, null},
+            new String[]{"string1", null},
+            new boolean[][]{
+                new boolean[]{true, true, false},
+                new boolean[]{false, true},
+                null
+            },
+            new short[][][]{
+                new short[][]{new short[]{1, 2, 3}, null},
                 new short[][]{},
                 null
-        },2, "ind2", "sortInd2");
+            }, 2, "ind2", "sortInd2");
 
         var outer3 = new ArrayOuterItem(null, new ArrayInnerItem[]{inner1, inner2, inner3, inner4},
-                new String[]{},
-                new boolean[][]{
-                },
-                new short[][][]{
-                },3, "ind3", "sortInd3");
+            new String[]{},
+            new boolean[][]{
+            },
+            new short[][][]{
+            }, 3, "ind3", "sortInd3");
 
         var outer4 = new ArrayOuterItem(new int[]{2}, new ArrayInnerItem[]{null, null, null},
-                new String[]{null, null},
-                new boolean[][]{
-                        null,
-                        null,
-                        null
-                },
-                new short[][][]{
-                        null,
-                        null,
-                        null
-                },4, "ind3", "sortInd3");
+            new String[]{null, null},
+            new boolean[][]{
+                null,
+                null,
+                null
+            },
+            new short[][][]{
+                null,
+                null,
+                null
+            }, 4, "ind3", "sortInd3");
 
         // Act
         table.putBatch(List.of(outer1, outer2, outer3, outer4));
@@ -132,5 +132,18 @@ public class ProcessorTest {
         Assertions.assertEquals(outer2, outer2Out);
         Assertions.assertEquals(outer3, outer3Out);
         Assertions.assertEquals(outer4, outer4Out);
+    }
+
+    @Test
+    public void testCodecWithCodecList_shouldBeEqual_whenEncodedThenDecoded() {
+        // Setup
+        var value = new CodecWithCodecList("p", List.of(new InnerItem(InnerItem.Color.GREEN, null, null, null, null, null)));
+        var codec = new CodecWithCodecListDynamoCodec();
+
+        // Act
+        var decoded = codec.decode(codec.encode(value));
+
+        // Verify
+        Assertions.assertEquals(value, decoded);
     }
 }
