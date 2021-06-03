@@ -436,6 +436,7 @@ public class CtClassGenerator {
      * @param withSyncClient true if we should have a sync client parameter
      * @param withAsyncClient true if we should have an async client parameter
      * @return The constructor
+     * @throws IllegalArgumentException If both clients are null
      */
     private MethodSpec buildTableConstructor(boolean withSyncClient, boolean withAsyncClient) {
         var builder = MethodSpec.constructorBuilder()
@@ -906,6 +907,22 @@ public class CtClassGenerator {
      */
     private String buildAttributeEncodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData,
                                                   Element element) throws CtException {
+        return buildAttributeEncodeExpression(valueVar, codecClass, returnType, formatData, element, false);
+    }
+
+    /**
+     * Build an expression that encodes an attribute
+     * @param valueVar The variable that holds the attribute value
+     * @param codecClass The class to use to encode/decode the value
+     * @param returnType The type of the value
+     * @param formatData Data that will be substituted into the template we return
+     * @param element The element to identify in errors
+     * @param toBareString If set, we convert it to a string. Otherwise to an AttributeValue.
+     * @return The attribute encoding expression
+     * @throws CtException If there is an error building the expression
+     */
+    private String buildAttributeEncodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData,
+                                                  Element element, boolean toBareString) throws CtException {
 
         if (codecClass == null) {
             var avId = getUniqueId("t");
@@ -914,23 +931,26 @@ public class CtClassGenerator {
             switch (returnType.getKind()) {
                 case INT:
                     formatData.put(typeId, Integer.class);
-                    return "$" + avId + ":T.builder().n($" + typeId + ":T.toString(" + valueVar + ")).build()";
+                    return wrapInAttributeValue(toBareString, "$" + typeId + ":T.toString(" + valueVar + ")", "n", avId);
                 case LONG:
                     formatData.put(typeId, Long.class);
-                    return "$" + avId + ":T.builder().n($" + typeId + ":T.toString(" + valueVar + ")).build()";
+                    return wrapInAttributeValue(toBareString, "$" + typeId + ":T.toString(" + valueVar + ")", "n", avId);
                 case BYTE:
                     formatData.put(typeId, Byte.class);
-                    return "$" + avId + ":T.builder().n($" + typeId + ":T.toString(" + valueVar + ")).build()";
+                    return wrapInAttributeValue(toBareString, "$" + typeId + ":T.toString(" + valueVar + ")", "n", avId);
                 case FLOAT:
                     formatData.put(typeId, Float.class);
-                    return "$" + avId + ":T.builder().n($" + typeId + ":T.toString(" + valueVar + ")).build()";
+                    return wrapInAttributeValue(toBareString, "$" + typeId + ":T.toString(" + valueVar + ")", "n", avId);
                 case DOUBLE:
                     formatData.put(typeId, Double.class);
-                    return "$" + avId + ":T.builder().n($" + typeId + ":T.toString(" + valueVar + ")).build()";
+                    return wrapInAttributeValue(toBareString, "$" + typeId + ":T.toString(" + valueVar + ")", "n", avId);
                 case SHORT:
                     formatData.put(typeId, Short.class);
-                    return "$" + avId + ":T.builder().n($" + typeId + ":T.toString(" + valueVar + ")).build()";
+                    return wrapInAttributeValue(toBareString, "$" + typeId + ":T.toString(" + valueVar + ")", "n", avId);
                 case BOOLEAN:
+                    if (toBareString) {
+                        throw new CtException("Cannot convert a boolean to a plain string", element);
+                    }
                     return "$" + avId + ":T.builder().bool(" + valueVar + ").build()";
                 case DECLARED:
                     break;
@@ -938,8 +958,11 @@ public class CtClassGenerator {
                     throw new CtException("Unknown typeKind " + returnType.getKind());
             }
             if (typeTools.equal(returnType, typeTools.stringMirror)) {
-                return "$" + avId + ":T.builder().s(" + valueVar + ").build()";
+                return wrapInAttributeValue(toBareString, valueVar, "s", avId);
             } else if (typeTools.types.isSubtype(returnType, typeTools.listMirror) || typeTools.types.isSubtype(returnType, typeTools.setMirror)) {
+                if (toBareString) {
+                    throw new CtException("Cannot convert a list or a set to a plain string", element);
+                }
                 var innerType = ((DeclaredType)returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
                 var codecType = getUniqueId("t");
@@ -950,14 +973,38 @@ public class CtClassGenerator {
                            + ".map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
                            + buildAttributeEncodeExpression(tmpVar, null, innerType, formatData, element) + ")"
                            + ".collect($" + collectors + ":T.toList())).build()";
+            } else if (typeTools.types.isSubtype(returnType, typeTools.mapMirror)) {
+                if (toBareString) {
+                    throw new CtException("Cannot convert a list or a set to a plain string", element);
+                }
+                var keyType = ((DeclaredType)returnType).getTypeArguments().get(0);
+                var valueType = ((DeclaredType)returnType).getTypeArguments().get(1);
+                var entryVar = getUniqueId("e");
+                var codecType = getUniqueId("t");
+                var collectors = getUniqueId("t");
+                formatData.put(collectors, Collectors.class);
+                formatData.put(codecType, DynamoCodec.class);
+                return "$" + avId + ":T.builder().m(" + valueVar + ".entrySet().stream()"
+                           + ".collect($" + collectors + ":T.toMap(" + entryVar + " -> "
+                           + buildAttributeEncodeExpression(entryVar + ".getKey()", null, keyType, formatData, element, true)
+                           + ", " + entryVar + " -> "
+                           + entryVar + ".getValue() == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
+                           + buildAttributeEncodeExpression(entryVar + ".getValue()", null, valueType, formatData, element)
+                           + "))).build()";
             } else if (typeTools.types.isSubtype(returnType, typeTools.enumMirror)) {
-                return "$" + avId + ":T.builder().s(" + valueVar + ".name()).build()";
+                return wrapInAttributeValue(toBareString, valueVar + ".name()", "s", avId);
             } else if (typeTools.equal(returnType, typeTools.booleanMirror)) {
+                if (toBareString) {
+                    throw new CtException("Cannot convert a boolean to a plain string", element);
+                }
                 return "$" + avId + ":T.builder().bool(" + valueVar + ").build()";
             } else if (typeTools.isNumber(returnType)) {
-                return "$" + avId + ":T.builder().n(" + valueVar + ".toString()).build()";
+                return wrapInAttributeValue(toBareString, valueVar + ".toString()", "n", avId);
             } else {
                 // See if we can find a codec for this class. Otherwise we can't encode it.
+                if (toBareString) {
+                    throw new CtException("Cannot convert a " + returnType + " to a plain string", element);
+                }
                 codecClass = findCodecClass(returnType);
                 if (codecClass == null) {
                     throw new CtException("Don't know how to encode class " + returnType, element);
@@ -967,8 +1014,25 @@ public class CtClassGenerator {
             }
         } else {
             // We have a codec for this class. Simply call it.
+            if (toBareString) {
+                throw new CtException("Cannot convert with " + codecClass + " into a plain string", element);
+            }
             return codecClassToCodecVar.get(codecClass) + ".encode(" + valueVar + ")";
         }
+    }
+
+    /**
+     * Take a string value and wrap it in an AttributeValue with .n() (number) or .s() (string).
+     * @param toBareString If set, we don't wrap - just return the string value directly
+     * @param subExpression The string-returning expression to wrap
+     * @param avType The type of attribute value, "n" or "s"
+     * @param avId The ID of the attribute value class in our statement
+     * @return The expression that properly wrapes the value
+     */
+    private String wrapInAttributeValue(boolean toBareString, String subExpression, String avType, String avId) {
+        return toBareString
+               ? subExpression
+               : "$" + avId + ":T.builder()." + avType + "(" + subExpression + ").build()";
     }
 
     /**
@@ -982,28 +1046,47 @@ public class CtClassGenerator {
      */
     private String buildAttributeDecodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData)
         throws CtException {
+        return buildAttributeDecodeExpression(valueVar, codecClass, returnType, formatData, false);
+    }
+
+    /**
+     * Build an expression to decode a given attribute
+     * @param valueVar The variable name holding the AttributeValue
+     * @param codecClass The class of codec to use, or null to not use a codec
+     * @param returnType The data type to return
+     * @param formatData Values that will be plugged into the string returned
+     * @param bareString If set, valueVar is a string; otherwise it is an AttributeValue.
+     * @return An expression to decode the given attribute
+     * @throws CtException If there is an error building the expression
+     */
+    private String buildAttributeDecodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData,
+                                                  boolean bareString)
+        throws CtException {
         if (codecClass == null) {
             var typeId = getUniqueId("t");
             switch (returnType.getKind()) {
                 case INT:
                     formatData.put(typeId, Integer.class);
-                    return "$" + typeId + ":T.parseInt(" + valueVar + ".n())";
+                    return "$" + typeId + ":T.parseInt(" + valueVar + (bareString ? ")" : ".n())");
                 case LONG:
                     formatData.put(typeId, Long.class);
-                    return "$" + typeId + ":T.parseLong(" + valueVar + ".n())";
+                    return "$" + typeId + ":T.parseLong(" + valueVar + (bareString ? ")" : ".n())");
                 case BYTE:
                     formatData.put(typeId, Byte.class);
-                    return "$" + typeId + ":T.parseByte(" + valueVar + ".n())";
+                    return "$" + typeId + ":T.parseByte(" + valueVar + (bareString ? ")" : ".n())");
                 case FLOAT:
                     formatData.put(typeId, Float.class);
-                    return "$" + typeId + ":T.parseFloat(" + valueVar + ".n())";
+                    return "$" + typeId + ":T.parseFloat(" + valueVar + (bareString ? ")" : ".n())");
                 case DOUBLE:
                     formatData.put(typeId, Double.class);
-                    return "$" + typeId + ":T.parseDouble(" + valueVar + ".n())";
+                    return "$" + typeId + ":T.parseDouble(" + valueVar + (bareString ? ")" : ".n())");
                 case SHORT:
                     formatData.put(typeId, Short.class);
-                    return "$" + typeId + ":T.parseShort(" + valueVar + ".n())";
+                    return "$" + typeId + ":T.parseShort(" + valueVar + (bareString ? ")" : ".n())");
                 case BOOLEAN:
+                    if (bareString) {
+                        throw new CtException("Cannot convert a bare string value to boolean");
+                    }
                     return valueVar + ".bool()";
                 case DECLARED:
                     break;
@@ -1011,8 +1094,11 @@ public class CtClassGenerator {
                     throw new CtException("Unknown typeKind " + returnType.getKind());
             }
             if (typeTools.equal(returnType, typeTools.stringMirror)) {
-                return valueVar + ".s()";
+                return (bareString ? valueVar : valueVar + ".s()");
             } else if (typeTools.types.isSubtype(returnType, typeTools.listMirror) || typeTools.types.isSubtype(returnType, typeTools.setMirror)) {
+                if (bareString) {
+                    throw new CtException("Cannot convert a bare string value to a list or set");
+                }
                 var collectorFunc = (typeTools.types.isSubtype(returnType, typeTools.listMirror) ? "toList" : "toSet");
                 var innerType = ((DeclaredType)returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
@@ -1024,16 +1110,42 @@ public class CtClassGenerator {
                            + ".map(" + tmpVar + " -> " + tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
                            + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData) + ")"
                            + ".collect($" + collectors + ":T." + collectorFunc + "())";
+            } else if (typeTools.types.isSubtype(returnType, typeTools.mapMirror)) {
+                if (bareString) {
+                    throw new CtException("Cannot convert a bare string value to a map");
+                }
+                var keyType = ((DeclaredType)returnType).getTypeArguments().get(0);
+                var valueType = ((DeclaredType)returnType).getTypeArguments().get(1);
+                var mapVar = getUniqueId("m");
+                var entryVar = getUniqueId("e");
+                var hashMapId = getUniqueId("t");
+                var boolId = getUniqueId("t");
+                formatData.put(hashMapId, HashMap.class);
+                formatData.put(boolId, Boolean.class);
+                // Would be nice to use Collectors.toMap(), but that fails when there are null values, which we want to support.
+                return valueVar + ".m().entrySet().stream()"
+                           + ".collect($" + hashMapId + ":T::new, (" + mapVar + ", " + entryVar + ") -> "
+                           + mapVar + ".put("
+                           + buildAttributeDecodeExpression(entryVar + ".getKey()", null, keyType, formatData, true)
+                           + ", " + entryVar + ".getValue().nul() == $" + boolId + ":T.TRUE ? null : "
+                           + buildAttributeDecodeExpression(entryVar + ".getValue()", null, valueType, formatData)
+                           + "), $" + hashMapId + ":T::putAll)";
             } else if (typeTools.isNumber(returnType)) {
                 formatData.put(typeId, returnType);
-                return "$" + typeId + ":T.valueOf(" + valueVar + ".n())";
+                return "$" + typeId + ":T.valueOf(" + valueVar + (bareString ? ")" : ".n())");
             } else if (typeTools.equal(returnType, typeTools.booleanMirror)) {
+                if (bareString) {
+                    throw new CtException("Cannot convert a bare string value to boolean");
+                }
                 return valueVar + ".bool()";
             } else if (typeTools.types.isSubtype(returnType, typeTools.enumMirror)) {
                 formatData.put(typeId, returnType);
-                return "$" + typeId + ":T.valueOf(" + valueVar + ".s())";
+                return "$" + typeId + ":T.valueOf(" + valueVar + (bareString ? ")" : ".s())");
             } else {
                 // See if we can find a codec for this class. Otherwise we can't decode it.
+                if (bareString) {
+                    throw new CtException("Cannot convert a bare string value to " + returnType);
+                }
                 codecClass = findCodecClass(returnType);
                 if (codecClass == null) {
                     throw new CtException("Don't know how to decode class " + returnType);
@@ -1043,6 +1155,9 @@ public class CtClassGenerator {
             }
         } else {
             // We have a codec for this class. Simply call it.
+            if (bareString) {
+                throw new CtException("Cannot convert a bare string value to " + returnType);
+            }
             return codecClassToCodecVar.get(codecClass) + ".decode(" + valueVar + ")";
         }
     }

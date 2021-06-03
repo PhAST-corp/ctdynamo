@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class ProcessorTest {
@@ -27,13 +29,20 @@ public class ProcessorTest {
         var inner3 = new InnerItem(InnerItem.Color.GREEN, List.of(InnerItem.Color.GREEN), null, null, null, null);
 
         // Outer 1: Everything filled out
-        var outer1 = new OuterItem("outer1", inner1, List.of(inner2, inner3));
+        var outer1 = new OuterItem("outer1", inner1, List.of(inner2, inner3),
+            Map.of("five", 5, "ten", 10),
+            Map.of(OuterItem.Flavor.BITTER, "beer"));
 
         // Outer 2: Everything but partition key null
-        var outer2 = new OuterItem("outer2", null, null);
+        var outer2 = new OuterItem("outer2", null, null, null, null);
 
         // Outer 3: A list with some nulls
-        var outer3 = new OuterItem("outer3", inner2, Arrays.asList(null, inner1));
+        var numberMap = new HashMap<String, Integer>();
+        numberMap.put("zero", null);
+        var flavorMap = new HashMap<OuterItem.Flavor, String>();
+        flavorMap.put(OuterItem.Flavor.SOUR, null);
+        flavorMap.put(OuterItem.Flavor.SALTY, "pretzels");
+        var outer3 = new OuterItem("outer3", inner2, Arrays.asList(null, inner1), numberMap, flavorMap);
 
         // Act
         table.putBatch(List.of(outer1, outer2, outer3));

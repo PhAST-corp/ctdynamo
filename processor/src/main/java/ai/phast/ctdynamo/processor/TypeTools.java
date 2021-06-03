@@ -35,8 +35,11 @@ public class TypeTools {
     /** Mirror type of String */
     public final TypeMirror stringMirror;
 
-    /** Mirror type of List&*lt;?> */
+    /** Mirror type of List&lt;?> */
     public final TypeMirror listMirror;
+
+    /** Mirror of type Map&lt;?, ?> */
+    public final TypeMirror mapMirror;
 
     /** Mirror type of Set&lt;?> */
     public final TypeMirror setMirror;
@@ -84,6 +87,8 @@ public class TypeTools {
         stringMirror = types.getDeclaredType(elements.getTypeElement(String.class.getCanonicalName()));
         listMirror = types.getDeclaredType(elements.getTypeElement(List.class.getCanonicalName()),
             types.getWildcardType(null, null));
+        mapMirror = types.getDeclaredType(elements.getTypeElement(Map.class.getCanonicalName()),
+            types.getWildcardType(null, null), types.getWildcardType(null, null));
         setMirror = types.getDeclaredType(elements.getTypeElement(Set.class.getCanonicalName()),
             types.getWildcardType(null, null));
         enumMirror = types.getDeclaredType(elements.getTypeElement(Enum.class.getCanonicalName()),
