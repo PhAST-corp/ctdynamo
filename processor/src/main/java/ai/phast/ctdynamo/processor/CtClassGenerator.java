@@ -157,11 +157,10 @@ public class CtClassGenerator {
             }
         }
 
-        // Now that we have processed all attributes, remove the ignored ones.
+        // Now that we have processed all attributes, make sure they are all valid
         for (var metadata: attributes.values()) {
             metadata.validate();
         }
-        attributes.values().removeIf(AttributeMetadata::isIgnored);
     }
 
     /**
@@ -423,12 +422,20 @@ public class CtClassGenerator {
             }
             attributeMetadata = new AttributeMetadata(declaringElement);
         }
-        if (attributes.put(attributeName, attributeMetadata) != null) {
-            // Oops, already had a hard metadata. The annotations must all be on the same element.
-            throw new CtException("Two elements of attribute " + attributeName
-                                      + " include dynamo annotations; all annotations must be on the same elements", declaringElement);
+        if (!attributeMetadata.isIgnored()) {
+            // Ignored attributes are kept only in the tail-to-attribute map, not the main attribute map, because they
+            // aren't actually attribute.
+
+            if (attributes.put(attributeName, attributeMetadata) != null) {
+                // Oops, already had a hard metadata. The annotations must all be on the same element.
+                throw new CtException("Two elements of attribute " + attributeName
+                                          + " include dynamo annotations; all annotations must be on the same element", declaringElement);
+            }
         }
-        getterTailToAttribute.put(getterTail, attributeMetadata);
+        if (getterTailToAttribute.put(getterTail, attributeMetadata) != null) {
+            throw new CtException("Two getters or fields named " + getterTail
+                                      + " include dynamo annotations; all annotations must be on the same element", declaringElement);
+        }
     }
 
     /**
