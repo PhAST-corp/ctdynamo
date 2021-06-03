@@ -161,6 +161,11 @@ public class CtClassGenerator {
         for (var metadata: attributes.values()) {
             metadata.validate();
         }
+
+        // Validate our indexes
+        for (var indexName: indexes.keySet()) {
+            indexes.get(indexName).validate(indexName);
+        }
     }
 
     /**

@@ -1,10 +1,13 @@
 package ai.phast.ctdynamo.processor;
 
+import lombok.ToString;
+
 import javax.lang.model.element.Element;
 
 /**
  * Metadata for an index
  */
+@ToString
 class IndexMetadata {
 
     /** The name of the partition attribute */
@@ -70,5 +73,19 @@ class IndexMetadata {
      */
     public Element getDeclaringElement() {
         return declaringElement;
+    }
+
+    /**
+     * Ensure that the index can be used
+     * @param name The name of the index
+     * @throws CtException If the index is not acceptable
+     */
+    public void validate(String name) throws CtException {
+        if (partitonAttribute == null) {
+            throw new CtException("No partition key for secondary index " + name, declaringElement);
+        }
+        if (sortAttribute == null) {
+            throw new CtException("No sort attribute for secondary index " + name, declaringElement);
+        }
     }
 }
