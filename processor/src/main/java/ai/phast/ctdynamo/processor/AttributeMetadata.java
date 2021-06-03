@@ -6,7 +6,6 @@ import lombok.Getter;
 import java.util.Objects;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -21,7 +20,7 @@ class AttributeMetadata {
     public final TypeMirror returnType;
 
     /** The return type of the getter coerced into a class */
-    public final DeclaredType boxedReturnType;
+    public final TypeMirror boxedReturnType;
 
     /** The codec to use for this attribute, or null if we use a default codec */
     public final TypeName codecClass;
@@ -48,7 +47,7 @@ class AttributeMetadata {
      * @param codecClass       The codec to use on this attribute, or null if none is specified
      * @param element The element to indicate when we have errors related to this attribute
      */
-    AttributeMetadata(String name, TypeMirror returnType, DeclaredType boxedReturnType, TypeName codecClass,
+    AttributeMetadata(String name, TypeMirror returnType, TypeMirror boxedReturnType, TypeName codecClass,
                       Element element) {
         this.name = Objects.requireNonNull(name);
         this.returnType = returnType;

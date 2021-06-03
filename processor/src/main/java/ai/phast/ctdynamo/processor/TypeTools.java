@@ -128,9 +128,9 @@ public class TypeTools {
      * @param type The type that may be primitive
      * @return Either type, or the boxed version of type
      */
-    public DeclaredType box(TypeMirror type) {
+    public TypeMirror box(TypeMirror type) {
         var result = typeKindToBoxedType.get(type.getKind());
-        return result == null ? (DeclaredType)type : result;
+        return result == null ? type : result;
     }
 
     /**

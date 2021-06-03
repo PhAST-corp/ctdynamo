@@ -20,14 +20,21 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -35,6 +42,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -89,6 +97,18 @@ public class CtClassGenerator {
 
     /** Useful type-related constants and functions */
     private final TypeTools typeTools;
+
+    /**
+     * Set of all primitive types that need to have helper for array to Attribute Value
+     * conversions and their associated elements
+     */
+    private Set<TypeMirrorElementPair> arrayToAvHelpersNeeded = new HashSet<>();
+
+    /**
+     * Set of all primitive types that need to have helper for Attribute Value
+     * to array conversions and their associated elements
+     */
+    private Set<TypeMirrorElementPair> avToArrayHelpersNeeded = new HashSet<>();
 
     /**
      * Create a new class generator
@@ -210,6 +230,7 @@ public class CtClassGenerator {
         if (partitionKeyAttribute == null) {
             throw new CtException("Tables must have a getter or member variable with @DynamoPartitionKey annotation");
         }
+
         var tableType = typeTools.types.getDeclaredType(
             typeTools.elements.getTypeElement(DynamoTable.class.getCanonicalName()),
             typeTools.types.getDeclaredType(itemType), attributes.get(partitionKeyAttribute).boxedReturnType,
@@ -265,6 +286,8 @@ public class CtClassGenerator {
                             .initializer(CodeBlock.builder().add("new $T()", codecEntry.getKey()).build());
             classBuilder.addField(field.build());
         }
+
+        buildHelperFunctions(classBuilder);
 
         return JavaFile.builder(packageName, classBuilder.build()).build();
     }
@@ -327,7 +350,25 @@ public class CtClassGenerator {
             .addMethod(buildDecoderMethod(true));
         var qualifiedName = itemType.getQualifiedName().toString();
         var packageSplit = qualifiedName.lastIndexOf('.');
+
+        buildHelperFunctions(classBuilder);
+
         return JavaFile.builder(packageSplit > 0 ? qualifiedName.substring(0, packageSplit) : "", classBuilder.build()).build();
+    }
+
+    /**
+     * Creates helper functions used in the encoding and decoding of attribute values in the given class
+     * @param classBuilder The builder for the class being created
+     * @throws CtException If there is an error creating the helpers
+     */
+    private void buildHelperFunctions(TypeSpec.Builder classBuilder) throws CtException {
+        for (var pair : arrayToAvHelpersNeeded) {
+            classBuilder.addMethod(buildArrayToAvHelperMethod(pair.getTypeMirror(), pair.getElement()));
+        }
+
+        for (var pair : avToArrayHelpersNeeded) {
+            classBuilder.addMethod(buildAvToArrayHelperMethod(pair.getTypeMirror()));
+        }
     }
 
     /**
@@ -663,8 +704,9 @@ public class CtClassGenerator {
     /**
      * Build the "getIndex" method. It can have three forms, depending on how many indexes there are.
      * @return The MethodSpec for getIndex()
+     * @throws  CtException When error while building method
      */
-    private MethodSpec buildGetIndexMethod() {
+    private MethodSpec buildGetIndexMethod() throws CtException {
         var partitionT = TypeVariableName.get("IndexPartitionT");
         var sortT = TypeVariableName.get("IndexSortT");
         var returnT = ParameterizedTypeName.get(ClassName.get(DynamoIndex.class), TypeName.get(itemType.asType()), partitionT, sortT);
@@ -705,11 +747,17 @@ public class CtClassGenerator {
      * Add the body for getIndex() in the case where the table has one index
      * @param builder The MethodSpec builder
      * @param returnT The return type of getIndex()
+     * @throws CtException When error while building method
      */
-    private void addGetIndexOneIndexCase(MethodSpec.Builder builder, ParameterizedTypeName returnT) {
+    private void addGetIndexOneIndexCase(MethodSpec.Builder builder, ParameterizedTypeName returnT) throws CtException {
         var entry = indexes.entrySet().iterator().next();
-        var partitionType = attributes.get(entry.getValue().getPartitonAttribute()).boxedReturnType;
-        var sortType = attributes.get(entry.getValue().getSortAttribute()).boxedReturnType;
+
+        //Keys will never be arrays, so we know they are declared types
+        if (attributes.get(entry.getValue().getPartitonAttribute()) instanceof ArrayType) {
+            throw new CtException("Array cannot be partition or sort key", entry.getValue().getDeclaringElement());
+        }
+        var partitionType = (DeclaredType)attributes.get(entry.getValue().getPartitonAttribute()).boxedReturnType;
+        var sortType = (DeclaredType)attributes.get(entry.getValue().getSortAttribute()).boxedReturnType;
         builder.beginControlFlow("if (name.equals($S))", entry.getKey())
             .beginControlFlow("if (((partitionClass == null) || (partitionClass == $T.class))"
                                   + " && ((sortClass == null) || (sortClass == $T.class)))", partitionType, sortType)
@@ -964,6 +1012,7 @@ public class CtClassGenerator {
                         throw new CtException("Cannot convert a boolean to a plain string", element);
                     }
                     return "$" + avId + ":T.builder().bool(" + valueVar + ").build()";
+                case ARRAY:
                 case DECLARED:
                     break;
                 default:
@@ -971,20 +1020,41 @@ public class CtClassGenerator {
             }
             if (typeTools.equal(returnType, typeTools.stringMirror)) {
                 return wrapInAttributeValue(toBareString, valueVar, "s", avId);
+            } else if (returnType.getKind().equals(TypeKind.ARRAY)) {
+                if (toBareString) {
+                    throw new CtException("Cannot convert an array to a plain string", element);
+                }
+                var innerType = ((ArrayType) returnType).getComponentType();
+                var tmpVar = getUniqueId("t");
+                var codecType = getUniqueId("t");
+                var collectors = getUniqueId("t");
+                formatData.put(collectors, Collectors.class);
+                formatData.put(codecType, DynamoCodec.class);
+                if (innerType.getKind().isPrimitive()) {
+                    arrayToAvHelpersNeeded.add(new TypeMirrorElementPair(innerType, element));
+                    return "convertArrayToAv(" + valueVar + ")";
+                } else {
+                    var arrays = getUniqueId("t");
+                    formatData.put(arrays, Arrays.class);
+                    return "$" + avId + ":T.builder().l($" + arrays + ":T.stream(" + valueVar + ")"
+                            + ".map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
+                            + buildAttributeEncodeExpression(tmpVar, null, innerType, formatData, element) + ")"
+                            + ".collect($" + collectors + ":T.toList())).build()";
+                }
             } else if (typeTools.types.isSubtype(returnType, typeTools.listMirror) || typeTools.types.isSubtype(returnType, typeTools.setMirror)) {
                 if (toBareString) {
                     throw new CtException("Cannot convert a list or a set to a plain string", element);
                 }
-                var innerType = ((DeclaredType)returnType).getTypeArguments().get(0);
+                var innerType = ((DeclaredType) returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
                 var codecType = getUniqueId("t");
                 var collectors = getUniqueId("t");
                 formatData.put(collectors, Collectors.class);
                 formatData.put(codecType, DynamoCodec.class);
                 return "$" + avId + ":T.builder().l(" + valueVar + ".stream()"
-                           + ".map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
-                           + buildAttributeEncodeExpression(tmpVar, null, innerType, formatData, element) + ")"
-                           + ".collect($" + collectors + ":T.toList())).build()";
+                        + ".map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
+                        + buildAttributeEncodeExpression(tmpVar, null, innerType, formatData, element) + ")"
+                        + ".collect($" + collectors + ":T.toList())).build()";
             } else if (typeTools.types.isSubtype(returnType, typeTools.mapMirror)) {
                 if (toBareString) {
                     throw new CtException("Cannot convert a list or a set to a plain string", element);
@@ -1100,6 +1170,7 @@ public class CtClassGenerator {
                         throw new CtException("Cannot convert a bare string value to boolean");
                     }
                     return valueVar + ".bool()";
+                case ARRAY:
                 case DECLARED:
                     break;
                 default:
@@ -1107,21 +1178,43 @@ public class CtClassGenerator {
             }
             if (typeTools.equal(returnType, typeTools.stringMirror)) {
                 return (bareString ? valueVar : valueVar + ".s()");
+            } else if (returnType.getKind().equals(TypeKind.ARRAY)) {
+                if (bareString) {
+                    throw new CtException("Cannot convert a bare string value to an array");
+                }
+                var innerType = returnType.getKind().equals(TypeKind.ARRAY) ? ((ArrayType) returnType).getComponentType()
+                        : ((DeclaredType) returnType).getTypeArguments().get(0);
+                var tmpVar = getUniqueId("t");
+                var boolType = getUniqueId("t");
+                formatData.put(boolType, Boolean.class);
+                if (innerType.getKind().isPrimitive()) {
+                    var collectors = getUniqueId("t");
+                    formatData.put(collectors, Collectors.class);
+                    avToArrayHelpersNeeded.add(new TypeMirrorElementPair(innerType, null));
+
+                    return "convertAvToArray" + innerType.getKind() + "(" + valueVar + ")";
+                } else {
+                    return valueVar + ".l().stream()"
+                            + ".map(" + tmpVar + " -> " + tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
+                            + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData) + ")"
+                            + ".toArray(" + innerType + "[]::new)";
+                }
             } else if (typeTools.types.isSubtype(returnType, typeTools.listMirror) || typeTools.types.isSubtype(returnType, typeTools.setMirror)) {
                 if (bareString) {
                     throw new CtException("Cannot convert a bare string value to a list or set");
                 }
                 var collectorFunc = (typeTools.types.isSubtype(returnType, typeTools.listMirror) ? "toList" : "toSet");
-                var innerType = ((DeclaredType)returnType).getTypeArguments().get(0);
+                var innerType = returnType.getKind().equals(TypeKind.ARRAY) ? ((ArrayType) returnType).getComponentType()
+                        : ((DeclaredType) returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
-                var collectors = getUniqueId("t");
                 var boolType = getUniqueId("t");
-                formatData.put(collectors, Collectors.class);
                 formatData.put(boolType, Boolean.class);
+                var collectors = getUniqueId("t");
+                formatData.put(collectors, Collectors.class);
                 return valueVar + ".l().stream()"
-                           + ".map(" + tmpVar + " -> " + tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
-                           + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData) + ")"
-                           + ".collect($" + collectors + ":T." + collectorFunc + "())";
+                        + ".map(" + tmpVar + " -> " + tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
+                        + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData) + ")"
+                        + ".collect($" + collectors + ":T." + collectorFunc + "())";
             } else if (typeTools.types.isSubtype(returnType, typeTools.mapMirror)) {
                 if (bareString) {
                     throw new CtException("Cannot convert a bare string value to a map");
@@ -1175,6 +1268,115 @@ public class CtClassGenerator {
     }
 
     /**
+     * Create a converter from attribute value to array for the given primitive type
+     * @param type The type of array
+     * @return The method to convert
+     * @throws CtException If the type is not a primitive
+     */
+    private MethodSpec buildAvToArrayHelperMethod(TypeMirror type) throws CtException {
+        var builder = MethodSpec.methodBuilder("convertAvToArray" + type.getKind().name())
+                .addModifiers(Modifier.PRIVATE)
+                .addModifiers(Modifier.STATIC)
+                .addParameter(AttributeValue.class, "av");
+        switch (type.getKind()) {
+            case INT:
+                builder.returns(int[].class);
+                break;
+            case LONG:
+                builder.returns(long[].class);
+                break;
+            case BYTE:
+                builder.returns(byte[].class);
+                break;
+            case FLOAT:
+                builder.returns(float[].class);
+                break;
+            case DOUBLE:
+                builder.returns(double[].class);
+                break;
+            case SHORT:
+                builder.returns(short[].class);
+                break;
+            case BOOLEAN:
+                builder.returns(boolean[].class);
+                break;
+            default:
+                throw new CtException("Unknown primitive " + type);
+        }
+
+        var arrayVar = getUniqueId("t");
+        var primType = typeTools.types.getPrimitiveType(type.getKind());
+        var formatData = new HashMap<String, Object>();
+        builder.addStatement("$T list = av.l()", ParameterizedTypeName.get(List.class, AttributeValue.class))
+                .addStatement(primType + "[] " + arrayVar + " = new " + primType
+                    + "[list.size()]")
+                .beginControlFlow("for (int i = 0; i < list.size(); i++)")
+                .addStatement(CodeBlock.builder()
+                        .addNamed(arrayVar + "[i] = " + buildAttributeDecodeExpression("list.get(i)", null, type, formatData), formatData)
+                        .build())
+                .endControlFlow()
+                .addStatement("return " + arrayVar);
+        return builder.build();
+    }
+
+    /**
+     * Create a converter from array to attribute value for the given primitive type
+     * @param type The type of array
+     * @param element The element used for error messages
+     * @return The method to convert
+     * @throws CtException If the type is not a primitive
+     */
+    private MethodSpec buildArrayToAvHelperMethod(TypeMirror type, Element element) throws CtException {
+        var builder = MethodSpec.methodBuilder("convertArrayToAv")
+                .addModifiers(Modifier.PRIVATE)
+                .addModifiers(Modifier.STATIC)
+                .returns(AttributeValue.class);
+        switch (type.getKind()) {
+            case INT:
+                builder.addParameter(int[].class, "array");
+                break;
+            case LONG:
+                builder.addParameter(long[].class, "array");
+                break;
+            case BYTE:
+                builder.addParameter(byte[].class, "array");
+                break;
+            case FLOAT:
+                builder.addParameter(float[].class, "array");
+                break;
+            case DOUBLE:
+                builder.addParameter(double[].class, "array");
+                break;
+            case SHORT:
+                builder.addParameter(short[].class, "array");
+                break;
+            case BOOLEAN:
+                builder.addParameter(boolean[].class, "array");
+                break;
+            default:
+                throw new CtException("Unknown primitive " + type);
+        }
+
+        var formatData = new HashMap<String, Object>();
+        var codecType = getUniqueId("t");
+        var collectors = getUniqueId("t");
+        formatData.put(collectors, Collectors.class);
+        formatData.put(codecType, DynamoCodec.class);
+        var listVar = getUniqueId("t");
+        builder.addStatement("$T " + listVar
+                + " = new $T()", ParameterizedTypeName.get(List.class, AttributeValue.class),
+                ParameterizedTypeName.get(ArrayList.class, AttributeValue.class))
+                .beginControlFlow("for (int i = 0; i < array.length; i++)")
+                .addStatement(CodeBlock.builder()
+                        .addNamed(listVar + ".add("
+                                + buildAttributeEncodeExpression("array[i]", null, type, formatData, element)
+                                + ")", formatData).build())
+                .endControlFlow()
+                .addStatement("return $T.builder().l(" + listVar + ").build()", AttributeValue.class);
+        return builder.build();
+    }
+
+    /**
      * Find the codec class for a given TypeMirror
      * @param baseType The type we need the codec class for
      * @return The codec class if one is declared, otherwise null
@@ -1212,5 +1414,37 @@ public class CtClassGenerator {
      */
     private String getUniqueId(String prefix) {
         return prefix + ++paramNumber;
+    }
+
+    /**
+     * Class used for keeping track of which helper methods to create. The type is used
+     * to keep track of what helper method needs to be made, and the error
+     * shows which part of the class the method is being created for. Overrides equals and hashCode since
+     * both of those are broken for TypeMirrors
+     */
+    @Setter
+    @Getter
+    @AllArgsConstructor
+    private class TypeMirrorElementPair {
+
+        /** The type mirror */
+        private TypeMirror typeMirror;
+
+        /** The element */
+        private Element element;
+
+        @Override
+        public boolean equals(Object o) {
+            if (o instanceof TypeMirrorElementPair) {
+                return ((TypeMirrorElementPair) o).getTypeMirror().getKind() == typeMirror.getKind();
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(typeMirror.getKind());
+        }
     }
 }

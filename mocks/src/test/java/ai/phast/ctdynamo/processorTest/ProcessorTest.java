@@ -55,4 +55,82 @@ public class ProcessorTest {
         Assertions.assertEquals(outer2, outer2Out);
         Assertions.assertEquals(outer3, outer3Out);
     }
+
+    @Test
+    public void testArrayAsAttribute_shouldBeEncodedAndDecodedProperly_whenStoringVariousDatatypes() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(ArrayOuterItemDynamoTable.class);
+
+        // Item 1: All values filled out, no nulls in arrays.
+        var inner1 = new ArrayInnerItem(new double[]{3., 1., -5.45}, new Integer[]{1, -1, 0});
+
+        // Item 2: All values filled out, nulls in arrays.
+        var inner2 = new ArrayInnerItem(new double[]{0.01, 1.111, 3.56546456456}, new Integer[]{500, null, null});
+
+        // Item 3: Empty arrays
+        var inner3 = new ArrayInnerItem(new double[0], new Integer[0]);
+
+        // Item 4: arrays that are not filled out
+        var inner4 = new ArrayInnerItem(new double[3], new Integer[5]);
+
+        var outer1 = new ArrayOuterItem(new int[]{1, 2, 3}, new ArrayInnerItem[]{inner1},
+                new String[]{"string1", "string2"},
+                new boolean[][]{
+                        new boolean[]{true, false, false},
+                        new boolean[]{true, false, true},
+                        new boolean[]{false, false, false}
+                },
+                new short[][][]{
+                        new short[][]{new short[]{1,2,3}, new short[]{1,2}},
+                        new short[][]{new short[]{}, new short[]{1,25,6}},
+                        new short[][]{new short[]{1,2,3}, new short[]{1,2}, new short[]{1,-3,5,7}}
+                }, 1, "ind1", "sortInd1");
+
+        var outer2 = new ArrayOuterItem(new int[]{}, new ArrayInnerItem[]{inner2, inner4, null},
+                new String[]{"string1", null},
+                new boolean[][]{
+                        new boolean[]{true, true, false},
+                        new boolean[]{false, true},
+                        null
+                },
+                new short[][][]{
+                new short[][]{new short[]{1,2,3}, null},
+                new short[][]{},
+                null
+        },2, "ind2", "sortInd2");
+
+        var outer3 = new ArrayOuterItem(null, new ArrayInnerItem[]{inner1, inner2, inner3, inner4},
+                new String[]{},
+                new boolean[][]{
+                },
+                new short[][][]{
+                },3, "ind3", "sortInd3");
+
+        var outer4 = new ArrayOuterItem(new int[]{2}, new ArrayInnerItem[]{null, null, null},
+                new String[]{null, null},
+                new boolean[][]{
+                        null,
+                        null,
+                        null
+                },
+                new short[][][]{
+                        null,
+                        null,
+                        null
+                },4, "ind3", "sortInd3");
+
+        // Act
+        table.putBatch(List.of(outer1, outer2, outer3, outer4));
+
+        var outer1Out = table.getItem(1, null);
+        var outer2Out = table.getItem(2, null);
+        var outer3Out = table.getItem(3, null);
+        var outer4Out = table.getItem(4, null);
+
+        // Verify
+        Assertions.assertEquals(outer1, outer1Out);
+        Assertions.assertEquals(outer2, outer2Out);
+        Assertions.assertEquals(outer3, outer3Out);
+        Assertions.assertEquals(outer4, outer4Out);
+    }
 }
