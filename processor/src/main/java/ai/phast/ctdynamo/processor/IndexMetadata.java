@@ -85,7 +85,7 @@ class IndexMetadata {
             throw new CtException("No partition key for secondary index " + name, declaringElement);
         }
         if (sortAttribute == null) {
-            throw new CtException("No sort attribute for secondary index " + name, declaringElement);
+            throw new CtException("No sort key for secondary index " + name, declaringElement);
         }
     }
 }
