@@ -1,10 +1,6 @@
 package ai.phast.ctdynamo;
 
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-
-import java.util.Map;
-import java.util.stream.Stream;
 
 /**
  * Build an execute a scan. This looks and acts like a builder, except that when you are done instead of calling
@@ -20,101 +16,19 @@ import java.util.stream.Stream;
  *
  * @param <T> The type of item to return
  */
-public final class Scan<T> {
-
-    /** The index or table we are querying */
-    private final DynamoIndex<T, ?, ?> index;
-
-    /** The maximum number of items to returned, or -1 if the number is unlimited */
-    private int limit = -1;
-
-    /** The maximum number of items per page to returned, or -1 if we want the biggest pages that dynamo will supply */
-    private int pageSize = -1;
-
-    /** true if this is asynchronous, false if it is synchronous */
-    private boolean isAsync = false;
-
-    /** The exclusive start key of the scan */
-    private Map<String, AttributeValue> exclusiveStartKey;
-
-    /** true to use consistent reads. False or null to use neither. */
-    private Boolean isConsistentRead;
+public final class Scan<T> extends BaseQueryScan<T, DynamoIndex<T, ?, ?>, Scan<T>> {
 
     /**
      * Build a new scan
      * @param index The index or table we are scanning
      */
     Scan(DynamoIndex<T, ?, ?> index) {
-        this.index = index;
+        super(index);
     }
 
-    /**
-     * Select whether a query is synchronous or asynchronous. See the class description for information on the
-     * difference
-     * @param value true to make this an asynchronous query, false to make it synchronous
-     * @return This query
-     */
-    public Scan<T> async(boolean value) {
-        isAsync = value;
+    @Override
+    protected Scan<T> self() {
         return this;
-    }
-
-    /**
-     * Set the maximum number of items to return
-     *
-     * <p>Note that this is not the same as the Dynamo limit value; Dynamo's limit is the maximum items to return per
-     * page, this limit is the maximum total number of items to return. See {@link #pageSize(int)} for the value that
-     * will set the Dynamo limit property.
-     * @param value The maximum number of items to return
-     * @return This query
-     */
-    public Scan<T> limit(int value) {
-        limit = value;
-        return this;
-    }
-
-    /**
-     * Set the page size. If this is not set, it will default to the same as the limit if there is no filter
-     * expression; if there is a filter expression, it will default to double the limit. If there is no limit and no
-     * page size, then the page size is limited only by Dynamo. For synchronous queries, bigger
-     * limits will have better performance. For asynchronous queries, you may get better performance from smaller
-     * queries because you will get your first results back sooner.
-     * @param value The page size
-     * @return This query
-     */
-    public Scan<T> pageSize(int value) {
-        pageSize = value;
-        return this;
-    }
-
-    /**
-     * Set whether or not this query should use consistent reads. "false" is the default.
-     * @param value true for consistent reads
-     * @return This query
-     */
-    public Scan<T> consistentRead(boolean value) {
-        isConsistentRead = value;
-        return this;
-    }
-
-    /**
-     * Set the exclusive start key. You can get an exclusive start key from {@link IterableResult#getExclusiveStartKey()}
-     * or from {@link DynamoIndex#getExclusiveStartKey(Object)}. Only values that come after the exclusive start in the
-     * scan will be returned
-     * @param value The exclusive start key
-     * @return This query
-     */
-    public Scan<T> exclusiveStartKey(String value) {
-        exclusiveStartKey = (value == null ? null : index.decodeExclusiveStart(value));
-        return this;
-    }
-
-    /**
-     * Shortcut to .invoke.stream()
-     * @return A stream of the items from the scan
-     */
-    public Stream<T> stream() {
-        return invoke().stream();
     }
 
     /**
@@ -122,6 +36,7 @@ public final class Scan<T> {
      * table or index
      * @return An iterable result that can iterate or stream through the returned items
      */
+    @Override
     public IterableResult<T> invoke() {
         return invoke(0, 1);
     }
@@ -135,25 +50,28 @@ public final class Scan<T> {
      * @return The result of the scan
      */
     public IterableResult<T> invoke(int segment, int numSegments) {
+        var index = getIndex();
         var builder = ScanRequest.builder()
                           .tableName(index.getTableName())
-                          .consistentRead(isConsistentRead)
+                          .consistentRead(isConsistentRead())
                           .segment(segment)
                           .totalSegments(numSegments);
+        if (getFilterExpression() != null) {
+            builder.filterExpression(getFilterExpression())
+                .expressionAttributeNames(getAttributeNames())
+                .expressionAttributeValues(getValues());
+        }
         var indexName = index.getIndexName();
         if (indexName != null) {
             builder.indexName(indexName);
         }
-        if (exclusiveStartKey != null) {
-            builder.exclusiveStartKey(exclusiveStartKey);
+        if (getExclusiveStartKey() != null) {
+            builder.exclusiveStartKey(getExclusiveStartKey());
         }
-        if (pageSize <= 0) {
-            if (limit >= 0) {
-                builder.limit(limit);
-            }
-        } else {
+        var pageSize = getPageSize();
+        if (pageSize > 0) {
             builder.limit(pageSize);
         }
-        return new ScanResult<>(index, builder, limit, isAsync);
+        return new ScanResult<>(index, builder, getLimit(), isAsync());
     }
 }

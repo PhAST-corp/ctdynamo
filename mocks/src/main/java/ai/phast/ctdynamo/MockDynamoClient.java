@@ -44,9 +44,6 @@ class MockDynamoClient implements DynamoDbClient {
     /** Our table */
     private final DynamoTable<?, ?, ?> tableInstance;
 
-    /** Our index - this is the same as our table if we are a table */
-    private final DynamoIndex<?, ?, ?> indexInstance;
-
     /** Our data is held here */
     private final InMemoryDynamoStore store;
 
@@ -63,7 +60,6 @@ class MockDynamoClient implements DynamoDbClient {
      */
     MockDynamoClient(DynamoTable<?, ?, ?> tableInstance, Collection<Map<String, AttributeValue>> items) {
         this.tableInstance = tableInstance;
-        indexInstance = tableInstance;
         indexName = null;
         store = new InMemoryDynamoStore(tableInstance, null, items);
     }
@@ -76,7 +72,6 @@ class MockDynamoClient implements DynamoDbClient {
      */
     MockDynamoClient(DynamoTable<?, ?, ?> tableInstance, DynamoIndex<?, ?, ?> indexInstance, Collection<Map<String, AttributeValue>> items) {
         this.tableInstance = tableInstance;
-        this.indexInstance = tableInstance;
         indexName = indexInstance.getIndexName();
         store = new InMemoryDynamoStore(indexInstance, tableInstance.getSortKeyAttribute() == null
                                                        ? List.of(tableInstance.getPartitionKeyAttribute())
@@ -152,7 +147,7 @@ class MockDynamoClient implements DynamoDbClient {
         if ((request.limit() != null) && (items.size() > request.limit())) {
             items = items.subList(0, request.limit());
         }
-        if (request.hasQueryFilter()) {
+        if (request.filterExpression() != null) {
             var eval = new ExpressionEvaluator(request.filterExpression(), request.expressionAttributeNames(), request.expressionAttributeValues());
             items.removeIf(item -> !eval.evalBool(item));
         }
@@ -189,6 +184,7 @@ class MockDynamoClient implements DynamoDbClient {
      * @param s1 The bound of the comparison
      * @param conditionExpression The expression with the comparison
      * @return The matching data
+     * @throws RuntimeException If we cannot parse the key expression
      */
     private Collection<Map<String, AttributeValue>> getByComparator(AttributeValue partitionValue, AttributeValue s1, String conditionExpression) {
         var opMatcher = KEY_EXPRESSION_OP.matcher(conditionExpression);

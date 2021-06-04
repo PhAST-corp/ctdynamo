@@ -55,4 +55,9 @@ public class Expression {
     public Map<String, String> getAttributeNames() {
         return attributeNames;
     }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "[" + expression + ", " + values + ", " + attributeNames + "]";
+    }
 }

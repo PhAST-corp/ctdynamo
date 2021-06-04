@@ -8,12 +8,14 @@ import ai.phast.ctdynamo.tables.WithIndex;
 import ai.phast.ctdynamo.tables.WithIndexDynamoTable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -352,5 +354,26 @@ public class MockDynamoClientTest {
             new WithIndex("x", "abc", "x", "a"),
             new WithIndex("x", "abb", "x", "a"),
             new WithIndex("x", "ab", "x", "a")), withAa);
+    }
+
+    @Test
+    public void testQuery_shouldSkipNonmatchingItems_whenFilterExpressionUsed() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(WithIndexDynamoTable.class,
+            new WithIndex("x", "a", "yes", null),
+            new WithIndex("y", "a", "yes", null),
+            new WithIndex("y", "b", "no", null),
+            new WithIndex("y", "c", "yes", null),
+            new WithIndex("y", "d", "maybe", null));
+
+        // Act
+        var resultWithYes = table.query("y")
+                          .filter(new ConditionExpression("#ip = :ip",
+                              Map.of(":ip", AttributeValue.builder().s("yes").build()), Map.of("#ip", "ip")))
+                          .stream().collect(Collectors.toList());
+
+        // Verify
+        Assertions.assertEquals(List.of(new WithIndex("y", "a", "yes", null), new WithIndex("y", "c", "yes", null)),
+            resultWithYes);
     }
 }
