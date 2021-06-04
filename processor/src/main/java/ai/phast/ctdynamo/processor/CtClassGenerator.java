@@ -1008,6 +1008,9 @@ public class CtClassGenerator {
                 case SHORT:
                     formatData.put(typeId, Short.class);
                     return wrapInAttributeValue(toBareString, "$" + typeId + ":T.toString(" + valueVar + ")", "n", avId);
+                case CHAR:
+                    formatData.put(typeId, Character.class);
+                    return wrapInAttributeValue(toBareString, "$" + typeId + ":T.toString(" + valueVar + ")", "s", avId);
                 case BOOLEAN:
                     if (toBareString) {
                         throw new CtException("Cannot convert a boolean to a plain string", element);
@@ -1081,6 +1084,8 @@ public class CtClassGenerator {
                     throw new CtException("Cannot convert a boolean to a plain string", element);
                 }
                 return "$" + avId + ":T.builder().bool(" + valueVar + ").build()";
+            } else if (typeTools.equal(returnType, typeTools.characterMirror)) {
+                return wrapInAttributeValue(toBareString, valueVar + ".toString()", "s", avId);
             } else if (typeTools.isNumber(returnType)) {
                 return wrapInAttributeValue(toBareString, valueVar + ".toString()", "n", avId);
             } else {
@@ -1166,6 +1171,8 @@ public class CtClassGenerator {
                 case SHORT:
                     formatData.put(typeId, Short.class);
                     return "$" + typeId + ":T.parseShort(" + valueVar + (bareString ? ")" : ".n())");
+                case CHAR:
+                    return valueVar + (bareString ? "" : ".s()") + ".charAt(0)";
                 case BOOLEAN:
                     if (bareString) {
                         throw new CtException("Cannot convert a bare string value to boolean");
@@ -1244,6 +1251,8 @@ public class CtClassGenerator {
                     throw new CtException("Cannot convert a bare string value to boolean");
                 }
                 return valueVar + ".bool()";
+            } else if (typeTools.equal(returnType, typeTools.characterMirror)) {
+                return valueVar + (bareString ? "" : ".s()") + ".charAt(0)";
             } else if (typeTools.types.isSubtype(returnType, typeTools.enumMirror)) {
                 formatData.put(typeId, returnType);
                 return "$" + typeId + ":T.valueOf(" + valueVar + (bareString ? ")" : ".s())");

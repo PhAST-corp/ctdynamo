@@ -57,6 +57,27 @@ public class ProcessorTest {
     }
 
     @Test
+    public void testCharAsAttribute_shouldBeEncodedAndDecodedProperly() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(CharItemDynamoTable.class);
+
+        // Item 1: A char and a Character object
+        var item1 = new CharItem("item1", 'c', 'C');
+
+        // Item 2: A char and a null Character object
+        var item2 = new CharItem("item2", 'c', null);
+
+        // Act
+        table.putBatch(List.of(item1, item2));
+        var item1Out = table.getItem("item1", null);
+        var item2Out = table.getItem("item2", null);
+
+        // Verify
+        Assertions.assertEquals(item1, item1Out);
+        Assertions.assertEquals(item2, item2Out);
+    }
+
+    @Test
     public void testArrayAsAttribute_shouldBeEncodedAndDecodedProperly_whenStoringVariousDatatypes() {
         // Setup
         var table = DynamoMockUtil.buildMockTable(ArrayOuterItemDynamoTable.class);

@@ -62,6 +62,9 @@ public class TypeTools {
     /** Mirror type for the DynamoIndex class */
     public final TypeMirror indexMirror;
 
+    /** Mirror type for the Character class */
+    public final TypeMirror characterMirror;
+
     /** Type utilities */
     public final Types types;
 
@@ -98,6 +101,7 @@ public class TypeTools {
         voidMirror = types.getDeclaredType(elements.getTypeElement(Void.class.getCanonicalName()));
         objectMirror = types.getDeclaredType(elements.getTypeElement(Object.class.getCanonicalName()));
         indexMirror = types.getDeclaredType(elements.getTypeElement(DynamoIndex.class.getCanonicalName()));
+        characterMirror = types.getDeclaredType(elements.getTypeElement(Character.class.getCanonicalName()));
         typeKindToBoxedType = Arrays.stream(TypeKind.values())
                                     .filter(TypeKind::isPrimitive)
                                     .collect(Collectors.toMap(
