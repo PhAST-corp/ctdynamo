@@ -37,6 +37,9 @@ public final class Scan<T> {
     /** The exclusive start key of the scan */
     private Map<String, AttributeValue> exclusiveStartKey;
 
+    /** true to use consistent reads. False or null to use neither. */
+    private Boolean isConsistentRead;
+
     /**
      * Build a new scan
      * @param index The index or table we are scanning
@@ -85,6 +88,16 @@ public final class Scan<T> {
     }
 
     /**
+     * Set whether or not this query should use consistent reads. "false" is the default.
+     * @param value true for consistent reads
+     * @return This query
+     */
+    public Scan<T> consistentRead(boolean value) {
+        isConsistentRead = value;
+        return this;
+    }
+
+    /**
      * Set the exclusive start key. You can get an exclusive start key from {@link IterableResult#getExclusiveStartKey()}
      * or from {@link DynamoIndex#getExclusiveStartKey(Object)}. Only values that come after the exclusive start in the
      * scan will be returned
@@ -124,6 +137,7 @@ public final class Scan<T> {
     public IterableResult<T> invoke(int segment, int numSegments) {
         var builder = ScanRequest.builder()
                           .tableName(index.getTableName())
+                          .consistentRead(isConsistentRead)
                           .segment(segment)
                           .totalSegments(numSegments);
         var indexName = index.getIndexName();

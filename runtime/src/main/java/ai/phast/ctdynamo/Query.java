@@ -59,6 +59,9 @@ public final class Query<T, PartitionT, SortT> {
     /** true if this is asynchronous, false if it is synchronous */
     private boolean isAsync;
 
+    /** true to use consistent reads. False or null to use neither. */
+    private Boolean isConsistentRead;
+
     /**
      * Build a new query
      * @param index The index or table we are querying
@@ -77,6 +80,16 @@ public final class Query<T, PartitionT, SortT> {
      */
     public Query<T, PartitionT, SortT> async(boolean value) {
         isAsync = value;
+        return this;
+    }
+
+    /**
+     * Set whether or not this query should use consistent reads. "false" is the default.
+     * @param value true for consistent reads
+     * @return This query
+     */
+    public Query<T, PartitionT, SortT> consistentRead(boolean value) {
+        isConsistentRead = value;
         return this;
     }
 
@@ -374,7 +387,8 @@ public final class Query<T, PartitionT, SortT> {
             throw new IllegalStateException("The partition key must be set before calling query.invoke()");
         }
         var builder = QueryRequest.builder()
-            .tableName(index.getTableName());
+            .tableName(index.getTableName())
+            .consistentRead(isConsistentRead);
         var indexName = index.getIndexName();
         if (indexName != null) {
             builder.indexName(indexName).select(Select.ALL_ATTRIBUTES);
