@@ -1278,32 +1278,8 @@ public class CtClassGenerator {
         var builder = MethodSpec.methodBuilder("convertAvToArray" + type.getKind().name())
                 .addModifiers(Modifier.PRIVATE)
                 .addModifiers(Modifier.STATIC)
-                .addParameter(AttributeValue.class, "av");
-        switch (type.getKind()) {
-            case INT:
-                builder.returns(int[].class);
-                break;
-            case LONG:
-                builder.returns(long[].class);
-                break;
-            case BYTE:
-                builder.returns(byte[].class);
-                break;
-            case FLOAT:
-                builder.returns(float[].class);
-                break;
-            case DOUBLE:
-                builder.returns(double[].class);
-                break;
-            case SHORT:
-                builder.returns(short[].class);
-                break;
-            case BOOLEAN:
-                builder.returns(boolean[].class);
-                break;
-            default:
-                throw new CtException("Unknown primitive " + type);
-        }
+                .addParameter(AttributeValue.class, "av")
+                .returns(TypeName.get(typeTools.types.getArrayType(type)));
 
         var arrayVar = getUniqueId("t");
         var primType = typeTools.types.getPrimitiveType(type.getKind());
@@ -1331,32 +1307,8 @@ public class CtClassGenerator {
         var builder = MethodSpec.methodBuilder("convertArrayToAv")
                 .addModifiers(Modifier.PRIVATE)
                 .addModifiers(Modifier.STATIC)
-                .returns(AttributeValue.class);
-        switch (type.getKind()) {
-            case INT:
-                builder.addParameter(int[].class, "array");
-                break;
-            case LONG:
-                builder.addParameter(long[].class, "array");
-                break;
-            case BYTE:
-                builder.addParameter(byte[].class, "array");
-                break;
-            case FLOAT:
-                builder.addParameter(float[].class, "array");
-                break;
-            case DOUBLE:
-                builder.addParameter(double[].class, "array");
-                break;
-            case SHORT:
-                builder.addParameter(short[].class, "array");
-                break;
-            case BOOLEAN:
-                builder.addParameter(boolean[].class, "array");
-                break;
-            default:
-                throw new CtException("Unknown primitive " + type);
-        }
+                .returns(AttributeValue.class)
+                .addParameter(TypeName.get(typeTools.types.getArrayType(type)), "array");
 
         var formatData = new HashMap<String, Object>();
         var codecType = getUniqueId("t");
