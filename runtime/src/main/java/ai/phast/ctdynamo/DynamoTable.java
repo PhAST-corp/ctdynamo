@@ -917,7 +917,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return The result (after merging the data from Dynamo)
      */
     private ExtendedBatchResult<T, Key<PartitionT, SortT>> updateBatchResultForDelete(ExtendedBatchResult<T, Key<PartitionT, SortT>> result, BatchWriteItemResponse response) {
-        if (response.hasUnprocessedItems()) {
+        if (response.hasUnprocessedItems() && !response.unprocessedItems().isEmpty()) {
             response.unprocessedItems().get(getTableName()).stream()
                 .map(writeRequest -> writeRequest.deleteRequest().key())
                 .map(m -> new Key<>(getPartitionValue(m.get(getPartitionKeyAttribute())), getSortValue(m.get(getSortKeyAttribute()))))
