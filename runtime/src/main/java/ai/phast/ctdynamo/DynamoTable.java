@@ -631,7 +631,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return The result
      */
     private ExtendedBatchResult<T, T> updateBatchResultForPut(ExtendedBatchResult<T, T> result, BatchWriteItemResponse response) {
-        if (response.hasUnprocessedItems()) {
+        if (response.hasUnprocessedItems() && !response.unprocessedItems().isEmpty()) {
             response.unprocessedItems().get(getTableName()).stream()
                 .map(writeRequest -> decode(writeRequest.putRequest().item()))
                 .forEach(item -> result.getUnprocessedValues().add(item));
