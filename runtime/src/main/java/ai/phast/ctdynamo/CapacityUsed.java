@@ -104,6 +104,23 @@ public class CapacityUsed {
     }
 
     /**
+     * Add this CapacityUsed and the given CapacityUsed together,
+     * making this object into the sum of both.
+     * @param other The other capacity to add
+     */
+    public void add(CapacityUsed other) {
+        this.tableRead += other.tableRead;
+        this.tableWrite += other.tableWrite;
+        this.totalRead += other.totalRead;
+        this.totalWrite += other.totalWrite;
+
+        for (var key : other.indexes.keySet()) {
+            this.indexes.merge(key, other.indexes.get(key),
+                (a, b) -> new ReadWrite(a.read + b.read, a.write + b.write));
+        }
+    }
+
+    /**
      * Add a raw dynamo capacity to this capacity object
      * @param raw The raw dynamo capacity
      */
