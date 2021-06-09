@@ -65,6 +65,12 @@ public class TypeTools {
     /** Mirror type for the Character class */
     public final TypeMirror characterMirror;
 
+    /** Mirror type for the List&lt;? extends java.lang.String&gt; class */
+    public final TypeMirror stringListMirror;
+
+    /** Mirror type for the Set&lt;? extends java.lang.String&gt; class */
+    public final TypeMirror stringSetMirror;
+
     /** Type utilities */
     public final Types types;
 
@@ -102,6 +108,10 @@ public class TypeTools {
         objectMirror = types.getDeclaredType(elements.getTypeElement(Object.class.getCanonicalName()));
         indexMirror = types.getDeclaredType(elements.getTypeElement(DynamoIndex.class.getCanonicalName()));
         characterMirror = types.getDeclaredType(elements.getTypeElement(Character.class.getCanonicalName()));
+        stringListMirror = types.getDeclaredType(elements.getTypeElement(List.class.getCanonicalName()),
+                types.getWildcardType(stringMirror, null));
+        stringSetMirror = types.getDeclaredType(elements.getTypeElement(Set.class.getCanonicalName()),
+                types.getWildcardType(stringMirror, null));
         typeKindToBoxedType = Arrays.stream(TypeKind.values())
                                     .filter(TypeKind::isPrimitive)
                                     .collect(Collectors.toMap(

@@ -10,6 +10,7 @@ import ai.phast.ctdynamo.annotations.DynamoPartitionKey;
 import ai.phast.ctdynamo.annotations.DynamoSecondaryPartitionKey;
 import ai.phast.ctdynamo.annotations.DynamoSecondarySortKey;
 import ai.phast.ctdynamo.annotations.DynamoSortKey;
+import ai.phast.ctdynamo.annotations.DynamoStringSet;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -23,6 +24,7 @@ import com.squareup.javapoet.WildcardTypeName;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -232,26 +234,26 @@ public class CtClassGenerator {
         }
 
         var tableType = typeTools.types.getDeclaredType(
-            typeTools.elements.getTypeElement(DynamoTable.class.getCanonicalName()),
-            typeTools.types.getDeclaredType(itemType), attributes.get(partitionKeyAttribute).boxedReturnType,
-            sortKeyAttribute == null ? typeTools.voidMirror : attributes.get(sortKeyAttribute).boxedReturnType);
+                typeTools.elements.getTypeElement(DynamoTable.class.getCanonicalName()),
+                typeTools.types.getDeclaredType(itemType), attributes.get(partitionKeyAttribute).boxedReturnType,
+                sortKeyAttribute == null ? typeTools.voidMirror : attributes.get(sortKeyAttribute).boxedReturnType);
         var classBuilder = TypeSpec.classBuilder(itemType.getSimpleName() + "DynamoTable")
-                               .addModifiers(Modifier.PUBLIC)
-                               .superclass(ParameterizedTypeName.get(tableType));
+                .addModifiers(Modifier.PUBLIC)
+                .superclass(ParameterizedTypeName.get(tableType));
         classBuilder.addMethod(buildTableConstructor(true, true))
-            .addMethod(buildTableConstructor(true, false))
-            .addMethod(buildTableConstructor(false, true))
-            .addMethod(buildGetKeyMethod("getPartitionValue", partitionKeyAttribute, true))
-            .addMethod(buildGetKeyMethod("getSortValue", sortKeyAttribute, true))
-            .addMethod(buildGetKeyMethod("getPartitionValue", partitionKeyAttribute, false))
-            .addMethod(buildGetKeyMethod("getSortValue", sortKeyAttribute, false))
-            .addMethod(buildKeyToAttributeValueMethod("partitionValueToAttributeValue", partitionKeyAttribute))
-            .addMethod(buildKeyToAttributeValueMethod("sortValueToAttributeValue", sortKeyAttribute))
-            .addMethod(buildEncoderMethod(false))
-            .addMethod(buildDecoderMethod(false))
-            .addMethod(buildGetExclusiveStartKeyMethod(partitionKeyAttribute, sortKeyAttribute))
-            .addMethod(buildDecodeExclusiveStartMethod(partitionKeyAttribute, sortKeyAttribute))
-            .addMethod(buildGetIndexMethod());
+                .addMethod(buildTableConstructor(true, false))
+                .addMethod(buildTableConstructor(false, true))
+                .addMethod(buildGetKeyMethod("getPartitionValue", partitionKeyAttribute, true))
+                .addMethod(buildGetKeyMethod("getSortValue", sortKeyAttribute, true))
+                .addMethod(buildGetKeyMethod("getPartitionValue", partitionKeyAttribute, false))
+                .addMethod(buildGetKeyMethod("getSortValue", sortKeyAttribute, false))
+                .addMethod(buildKeyToAttributeValueMethod("partitionValueToAttributeValue", partitionKeyAttribute))
+                .addMethod(buildKeyToAttributeValueMethod("sortValueToAttributeValue", sortKeyAttribute))
+                .addMethod(buildEncoderMethod(false))
+                .addMethod(buildDecoderMethod(false))
+                .addMethod(buildGetExclusiveStartKeyMethod(partitionKeyAttribute, sortKeyAttribute))
+                .addMethod(buildDecodeExclusiveStartMethod(partitionKeyAttribute, sortKeyAttribute))
+                .addMethod(buildGetIndexMethod());
 
         var qualifiedName = itemType.getQualifiedName().toString();
         var packageSplit = qualifiedName.lastIndexOf('.');
@@ -260,28 +262,28 @@ public class CtClassGenerator {
         for (var indexName : indexes.keySet()) {
             var metadata = indexes.get(indexName);
             TypeName name = ClassName.get(packageName, itemType.getSimpleName() + "DynamoTable",
-                indexNameToClassName(indexName));
+                    indexNameToClassName(indexName));
 
             // Create the class that we return. We can't return the actual class of the index, that is a private inner
             // class, so we have to instead return the parameterized DynamoIndex class that the real index class extends.
             var indexType = typeTools.types.getDeclaredType(
-                (TypeElement)typeTools.types.asElement(typeTools.indexMirror),    // DynamoIndex<
-                typeTools.types.getDeclaredType(itemType),                        //     ItemType,
-                attributes.get(metadata.getPartitonAttribute()).boxedReturnType,  //     PartitionType,
-                attributes.get(metadata.getSortAttribute()).boxedReturnType);     //     SortType>
+                    (TypeElement)typeTools.types.asElement(typeTools.indexMirror),    // DynamoIndex<
+                    typeTools.types.getDeclaredType(itemType),                        //     ItemType,
+                    attributes.get(metadata.getPartitonAttribute()).boxedReturnType,  //     PartitionType,
+                    attributes.get(metadata.getSortAttribute()).boxedReturnType);     //     SortType>
 
             classBuilder.addType(buildIndexInnerClass(indexName, indexType));
             classBuilder.addMethod(MethodSpec.methodBuilder("get" + indexNameToClassName(indexName))
-                                       .addModifiers(Modifier.PUBLIC)
-                                       .returns(ParameterizedTypeName.get(indexType))
-                                       .addStatement("return new $T(getClient(), getAsyncClient(), getTableName())", name)
-                                       .build());
+                    .addModifiers(Modifier.PUBLIC)
+                    .returns(ParameterizedTypeName.get(indexType))
+                    .addStatement("return new $T(getClient(), getAsyncClient(), getTableName())", name)
+                    .build());
         }
         addCodecFields(classBuilder);
 
         buildHelperFunctions(classBuilder);
-
         return JavaFile.builder(packageName, classBuilder.build()).build();
+
     }
 
     /**
@@ -300,24 +302,24 @@ public class CtClassGenerator {
             throw new CtException("Index " + indexName + " has no sort key", metadata.getDeclaringElement());
         }
         var constructor = MethodSpec.constructorBuilder()
-                              .addParameter(DynamoDbClient.class, "client")
-                              .addParameter(DynamoDbAsyncClient.class, "asyncClient")
-                              .addParameter(String.class, "tableName")
-                              .addStatement("super(client, asyncClient, tableName, $S, $S, $S)",
-                                  indexName, metadata.getPartitonAttribute(), metadata.getSortAttribute())
-                              .build();
+                .addParameter(DynamoDbClient.class, "client")
+                .addParameter(DynamoDbAsyncClient.class, "asyncClient")
+                .addParameter(String.class, "tableName")
+                .addStatement("super(client, asyncClient, tableName, $S, $S, $S)",
+                        indexName, metadata.getPartitonAttribute(), metadata.getSortAttribute())
+                .build();
         var classBuilder = TypeSpec.classBuilder(indexNameToClassName(indexName))
-                               .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                               .superclass(ParameterizedTypeName.get(indexType))
-                               .addMethod(constructor)
-                               .addMethod(buildKeyToAttributeValueMethod("partitionValueToAttributeValue", metadata.getPartitonAttribute()))
-                               .addMethod(buildKeyToAttributeValueMethod("sortValueToAttributeValue", metadata.getSortAttribute()))
-                               .addMethod(buildGetKeyMethod("getPartitionValue", metadata.getPartitonAttribute(), true))
-                               .addMethod(buildGetKeyMethod("getSortValue", metadata.getSortAttribute(), true))
-                               .addMethod(buildEncoderMethod(false))
-                               .addMethod(buildDecoderMethod(false))
-                               .addMethod(buildGetExclusiveStartKeyMethod(metadata.getPartitonAttribute(), metadata.getSortAttribute()))
-                               .addMethod(buildDecodeExclusiveStartMethod(metadata.getPartitonAttribute(), metadata.getSortAttribute()));
+                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                .superclass(ParameterizedTypeName.get(indexType))
+                .addMethod(constructor)
+                .addMethod(buildKeyToAttributeValueMethod("partitionValueToAttributeValue", metadata.getPartitonAttribute()))
+                .addMethod(buildKeyToAttributeValueMethod("sortValueToAttributeValue", metadata.getSortAttribute()))
+                .addMethod(buildGetKeyMethod("getPartitionValue", metadata.getPartitonAttribute(), true))
+                .addMethod(buildGetKeyMethod("getSortValue", metadata.getSortAttribute(), true))
+                .addMethod(buildEncoderMethod(false))
+                .addMethod(buildDecoderMethod(false))
+                .addMethod(buildGetExclusiveStartKeyMethod(metadata.getPartitonAttribute(), metadata.getSortAttribute()))
+                .addMethod(buildDecodeExclusiveStartMethod(metadata.getPartitonAttribute(), metadata.getSortAttribute()));
         return classBuilder.build();
     }
 
@@ -328,12 +330,12 @@ public class CtClassGenerator {
      */
     public JavaFile buildCodecClass() throws CtException {
         var codecType = typeTools.types.getDeclaredType(typeTools.elements.getTypeElement(DynamoCodec.class.getCanonicalName()),
-            typeTools.types.getDeclaredType(itemType));
+                typeTools.types.getDeclaredType(itemType));
         var classBuilder = TypeSpec.classBuilder(itemType.getSimpleName() + "DynamoCodec")
-                               .addModifiers(Modifier.PUBLIC)
-                               .superclass(ParameterizedTypeName.get(codecType));
+                .addModifiers(Modifier.PUBLIC)
+                .superclass(ParameterizedTypeName.get(codecType));
         classBuilder.addMethod(buildEncoderMethod(true))
-            .addMethod(buildDecoderMethod(true));
+                .addMethod(buildDecoderMethod(true));
         addCodecFields(classBuilder);
         var qualifiedName = itemType.getQualifiedName().toString();
         var packageSplit = qualifiedName.lastIndexOf('.');
@@ -366,8 +368,8 @@ public class CtClassGenerator {
     private void addCodecFields(TypeSpec.Builder classBuilder) {
         for (var codecEntry : codecClassToCodecVar.entrySet()) {
             var field = FieldSpec.builder(codecEntry.getKey(), codecEntry.getValue(),
-                Modifier.PRIVATE, Modifier.FINAL, Modifier.STATIC)
-                            .initializer(CodeBlock.builder().add("new $T()", codecEntry.getKey()).build());
+                    Modifier.PRIVATE, Modifier.FINAL, Modifier.STATIC)
+                    .initializer(CodeBlock.builder().add("new $T()", codecEntry.getKey()).build());
             classBuilder.addField(field.build());
         }
     }
@@ -379,11 +381,12 @@ public class CtClassGenerator {
      */
     private boolean hasCtDynamoAnnotation(Element element) {
         return element.getAnnotation(DynamoAttribute.class) != null
-                   || element.getAnnotation(DynamoPartitionKey.class) != null
-                   || element.getAnnotation(DynamoSortKey.class) != null
-                   || element.getAnnotation(DynamoSecondaryPartitionKey.class) != null
-                   || element.getAnnotation(DynamoSecondarySortKey.class) != null
-                   || element.getAnnotation(DynamoIgnore.class) != null;
+                || element.getAnnotation(DynamoPartitionKey.class) != null
+                || element.getAnnotation(DynamoSortKey.class) != null
+                || element.getAnnotation(DynamoSecondaryPartitionKey.class) != null
+                || element.getAnnotation(DynamoSecondarySortKey.class) != null
+                || element.getAnnotation(DynamoStringSet.class) != null
+                || element.getAnnotation(DynamoIgnore.class) != null;
     }
 
     /**
@@ -402,6 +405,7 @@ public class CtClassGenerator {
         var annotationFound = false;
         var attributeAnnotation = declaringElement.getAnnotation(DynamoAttribute.class);
         var nameFromAnnotation = "";
+        var isStringSet = false;
         if (attributeAnnotation != null) {
             annotationFound = true;
             nameFromAnnotation = attributeAnnotation.value();
@@ -411,9 +415,9 @@ public class CtClassGenerator {
         if (partitionKeyAnnotation != null) {
             if (annotationFound) {
                 throw new CtException("At most one of " + DynamoPartitionKey.class.getSimpleName()
-                                             + ", " + DynamoSortKey.class.getSimpleName()
-                                             + ", or " + DynamoAttribute.class.getSimpleName()
-                                             + " may be provided for each method", declaringElement);
+                        + ", " + DynamoSortKey.class.getSimpleName()
+                        + ", or " + DynamoAttribute.class.getSimpleName()
+                        + " may be provided for each method", declaringElement);
             }
             annotationFound = true;
             if (partitionKeyAttribute != null) {
@@ -427,9 +431,9 @@ public class CtClassGenerator {
         if (sortKeyAnnotation != null) {
             if (annotationFound) {
                 throw new CtException("At most one of " + DynamoPartitionKey.class.getSimpleName()
-                                             + ", " + DynamoSortKey.class.getSimpleName()
-                                             + ", or " + DynamoAttribute.class.getSimpleName()
-                                             + " may be provided for each method", declaringElement);
+                        + ", " + DynamoSortKey.class.getSimpleName()
+                        + ", or " + DynamoAttribute.class.getSimpleName()
+                        + " may be provided for each method", declaringElement);
             }
             annotationFound = true;
             if (sortKeyAttribute != null) {
@@ -454,6 +458,14 @@ public class CtClassGenerator {
                 indexes.computeIfAbsent(indexName, index -> new IndexMetadata()).setSortAttribute(attributeName, declaringElement);
             }
         }
+        if (declaringElement.getAnnotation(DynamoStringSet.class) != null) {
+            if (!(typeTools.types.isSubtype(attributeType, typeTools.stringSetMirror)
+                    || typeTools.types.isSubtype(attributeType, typeTools.stringListMirror))) {
+                throw new CtException("Attributes tagged as DynamoStringSet must be of type List<? extends String> or Set<? extends String>", declaringElement);
+            }
+            isStringSet = true;
+            annotationFound = true;
+        }
         AttributeMetadata attributeMetadata;
         if (declaringElement.getAnnotation(DynamoIgnore.class) == null) {
             var codecName = (codecType == null || typeTools.equal(typeTools.defaultCodecMirror, codecType) ? null : TypeName.get(codecType));
@@ -462,7 +474,7 @@ public class CtClassGenerator {
             } else {
                 addCodec(codecName);
             }
-            attributeMetadata = new AttributeMetadata(attributeName, attributeType, typeTools.box(attributeType), codecName, declaringElement);
+            attributeMetadata = new AttributeMetadata(attributeName, attributeType, typeTools.box(attributeType), codecName, isStringSet, declaringElement);
         } else {
             if (annotationFound) {
                 throw new CtException(DynamoIgnore.class.getSimpleName() + " is incompatible with other dynamo annotations", declaringElement);
@@ -476,12 +488,12 @@ public class CtClassGenerator {
             if (attributes.put(attributeName, attributeMetadata) != null) {
                 // Oops, already had a hard metadata. The annotations must all be on the same element.
                 throw new CtException("Two elements of attribute " + attributeName
-                                          + " include dynamo annotations; all annotations must be on the same element", declaringElement);
+                        + " include dynamo annotations; all annotations must be on the same element", declaringElement);
             }
         }
         if (getterTailToAttribute.put(getterTail, attributeMetadata) != null) {
             throw new CtException("Two getters or fields named " + getterTail
-                                      + " include dynamo annotations; all annotations must be on the same element", declaringElement);
+                    + " include dynamo annotations; all annotations must be on the same element", declaringElement);
         }
     }
 
@@ -494,7 +506,7 @@ public class CtClassGenerator {
      */
     private MethodSpec buildTableConstructor(boolean withSyncClient, boolean withAsyncClient) {
         var builder = MethodSpec.constructorBuilder()
-                          .addModifiers(Modifier.PUBLIC);
+                .addModifiers(Modifier.PUBLIC);
         if (withSyncClient) {
             builder.addParameter(DynamoDbClient.class, "client");
         }
@@ -525,8 +537,8 @@ public class CtClassGenerator {
      */
     private MethodSpec buildGetKeyMethod(String getKeyName, String attributeName, boolean fromItem) throws CtException {
         var methodBuilder = MethodSpec.methodBuilder(getKeyName)
-                                .addAnnotation(Override.class)
-                                .addModifiers(fromItem ? Modifier.PUBLIC : Modifier.PROTECTED, Modifier.FINAL);
+                .addAnnotation(Override.class)
+                .addModifiers(fromItem ? Modifier.PUBLIC : Modifier.PROTECTED, Modifier.FINAL);
         if (fromItem) {
             methodBuilder.addParameter(TypeName.get(typeTools.types.getDeclaredType(itemType)), "value");
         } else {
@@ -535,7 +547,7 @@ public class CtClassGenerator {
         if (attributeName == null) {
             // A nonexistant sort key. Return a Void that is null.
             methodBuilder.returns(Void.class)
-                .addStatement("return null");
+                    .addStatement("return null");
         } else {
             var parameterMetadata = attributes.get(attributeName);
             methodBuilder.returns(TypeName.get(parameterMetadata.boxedReturnType));
@@ -546,23 +558,23 @@ public class CtClassGenerator {
                 } else {
                     // Check for null
                     methodBuilder.addStatement("$T key = value." + parameterMetadata.getGetterName() + "()", parameterMetadata.returnType)
-                        .beginControlFlow("if (key == null)")
-                        .addStatement("throw new $T($S)", NullPointerException.class,
-                            "Null "
-                                + (attributeName.equals(partitionKeyAttribute) ? "partition" : "sort")
-                                + " key attribute \"" + attributeName + "\"")
-                        .endControlFlow()
-                        .addStatement("return key");
+                            .beginControlFlow("if (key == null)")
+                            .addStatement("throw new $T($S)", NullPointerException.class,
+                                    "Null "
+                                            + (attributeName.equals(partitionKeyAttribute) ? "partition" : "sort")
+                                            + " key attribute \"" + attributeName + "\"")
+                            .endControlFlow()
+                            .addStatement("return key");
                 }
             } else {
                 methodBuilder.beginControlFlow("if ((value == null) || (value.nul() == $T.TRUE))", Boolean.class)
-                    .addStatement("return null")
-                    .nextControlFlow("else");
+                        .addStatement("return null")
+                        .nextControlFlow("else");
                 var formatParams = new HashMap<String, Object>();
                 methodBuilder.addStatement(
-                    CodeBlock.builder().addNamed(
-                        "return " + buildAttributeDecodeExpression("value", parameterMetadata.codecClass, parameterMetadata.returnType, formatParams), formatParams)
-                        .build());
+                        CodeBlock.builder().addNamed(
+                                "return " + buildAttributeDecodeExpression("value", parameterMetadata.codecClass, parameterMetadata.returnType, formatParams, parameterMetadata.isStringSet), formatParams)
+                                .build());
                 methodBuilder.endControlFlow();
             }
         }
@@ -579,17 +591,17 @@ public class CtClassGenerator {
     private MethodSpec buildKeyToAttributeValueMethod(String methodName, String attribute) throws CtException {
         var metadata = (attribute == null ? null : attributes.get(attribute));
         var methodBuilder = MethodSpec.methodBuilder(methodName)
-                                .addAnnotation(Override.class)
-                                .addModifiers(Modifier.PROTECTED, Modifier.FINAL)
-                                .returns(AttributeValue.class);
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PROTECTED, Modifier.FINAL)
+                .returns(AttributeValue.class);
         if (metadata == null) {
             methodBuilder.addParameter(Void.class, "value");
             methodBuilder.addStatement("throw new $T($S)", UnsupportedOperationException.class,
-                "This table has no sort key");
+                    "This table has no sort key");
         } else {
             methodBuilder.addParameter(TypeName.get(metadata.boxedReturnType), "value");
             var formatParams = new HashMap<String, Object>();
-            methodBuilder.addNamedCode("return " + buildAttributeEncodeExpression(attribute, "value", formatParams) + ";\n", formatParams);
+            methodBuilder.addNamedCode("return " + buildAttributeEncodeExpression("value", metadata, formatParams, false) + ";\n", formatParams);
         }
         return methodBuilder.build();
     }
@@ -602,11 +614,11 @@ public class CtClassGenerator {
      */
     private MethodSpec buildEncoderMethod(boolean toAttributeValue) throws CtException {
         var builder = MethodSpec.methodBuilder("encode")
-                          .addAnnotation(Override.class)
-                          .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                          .addParameter(TypeName.get(typeTools.types.getDeclaredType(itemType)), "value")
-                          .returns(toAttributeValue ? TypeName.get(AttributeValue.class) : TypeName.get(typeTools.dynamoMapMirror))
-                          .addStatement("$T map = new $T($L)", ATTRIBUTE_VALUE_HASH_MAP, ATTRIBUTE_VALUE_HASH_MAP, (attributes.size() * 4 + 2) / 3);
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+                .addParameter(TypeName.get(typeTools.types.getDeclaredType(itemType)), "value")
+                .returns(toAttributeValue ? TypeName.get(AttributeValue.class) : TypeName.get(typeTools.dynamoMapMirror))
+                .addStatement("$T map = new $T($L)", ATTRIBUTE_VALUE_HASH_MAP, ATTRIBUTE_VALUE_HASH_MAP, (attributes.size() * 4 + 2) / 3);
         var formatParams = new HashMap<String, Object>();
         for (var entry : attributes.entrySet()) {
             var attributeName = entry.getKey();
@@ -615,28 +627,28 @@ public class CtClassGenerator {
             var attrNameParam = getUniqueId("s");
             formatParams.put(attrNameParam, attributeName);
             if (kind.isPrimitive()) {
-                builder.addNamedCode("map.put($" + attrNameParam + ":S, " + buildAttributeEncodeExpression(attributeName, null, formatParams) + ");\n", formatParams);
+                builder.addNamedCode("map.put($" + attrNameParam + ":S, " + buildAttributeEncodeExpression(null, entry.getValue(), formatParams, false) + ");\n", formatParams);
             } else {
                 // Non-primitives. May be null
                 var varName = getUniqueId("v");
                 builder.addStatement("$T " + varName + " = value." + entry.getValue().getGetterName() + "()", TypeName.get(entry.getValue().returnType));
                 if (attributeName.equals(partitionKeyAttribute) || attributeName.equals(sortKeyAttribute)) {
                     builder.beginControlFlow("if (" + varName + " == null)")
-                        .addStatement("throw new $T($S)", NullPointerException.class,
-                            "Null primary "
-                                + (attributeName.equals(partitionKeyAttribute) ? "partition" : "sort")
-                                + " key attribute \"" + attributeName + "\"")
-                        .endControlFlow()
-                        .addNamedCode("map.put($" + attrNameParam + ":S, " + buildAttributeEncodeExpression(attributeName, varName, formatParams) + ");\n", formatParams);
+                            .addStatement("throw new $T($S)", NullPointerException.class,
+                                    "Null primary "
+                                            + (attributeName.equals(partitionKeyAttribute) ? "partition" : "sort")
+                                            + " key attribute \"" + attributeName + "\"")
+                            .endControlFlow()
+                            .addNamedCode("map.put($" + attrNameParam + ":S, " + buildAttributeEncodeExpression(varName, entry.getValue(), formatParams, false) + ");\n", formatParams);
                 } else if (ignoreNulls) {
                     builder.beginControlFlow("if (" + varName + " != null)")
-                        .addNamedCode("map.put($" + attrNameParam + ":S, " + buildAttributeEncodeExpression(attributeName, varName, formatParams) + ");\n", formatParams)
-                        .endControlFlow();
+                            .addNamedCode("map.put($" + attrNameParam + ":S, " + buildAttributeEncodeExpression(varName, entry.getValue(), formatParams, false) + ");\n", formatParams)
+                            .endControlFlow();
                 } else {
                     var codecClassParam = getUniqueId("t");
                     formatParams.put(codecClassParam, DynamoCodec.class);
                     builder.addNamedCode("map.put($" + attrNameParam + ":S, " + varName + " == null ? $" + codecClassParam + ":T.NULL_ATTRIBUTE_VALUE : "
-                                             + buildAttributeEncodeExpression(attributeName, varName, formatParams) + ");\n", formatParams);
+                            + buildAttributeEncodeExpression(varName, entry.getValue(), formatParams, false) + ");\n", formatParams);
                 }
             }
         }
@@ -657,13 +669,13 @@ public class CtClassGenerator {
     private MethodSpec buildDecoderMethod(boolean fromAttributeValue) throws CtException {
         var entryTypeName = TypeName.get(typeTools.types.getDeclaredType(itemType));
         var builder = MethodSpec.methodBuilder("decode")
-            .addAnnotation(Override.class)
-            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .returns(entryTypeName)
-            .addStatement("$T result = new $T()", entryTypeName, entryTypeName);
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+                .returns(entryTypeName)
+                .addStatement("$T result = new $T()", entryTypeName, entryTypeName);
         if (fromAttributeValue) {
             builder.addParameter(TypeName.get(AttributeValue.class), "value")
-                .addStatement("$T map = value.m()", typeTools.dynamoMapMirror);
+                    .addStatement("$T map = value.m()", typeTools.dynamoMapMirror);
         } else {
             builder.addParameter(TypeName.get(typeTools.dynamoMapMirror), "map");
         }
@@ -675,27 +687,27 @@ public class CtClassGenerator {
                 // Cannot be null. Just call the setter.
                 formatParams.put("a", entry.getKey());
                 builder.addNamedCode("result." + entry.getValue().getSetterName() + "("
-                                         + buildAttributeDecodeExpression("map.get($a:S)", entry.getValue().codecClass, entry.getValue().returnType, formatParams)
-                                         + ");\n", formatParams);
+                        + buildAttributeDecodeExpression("map.get($a:S)", entry.getValue().codecClass, entry.getValue().returnType, formatParams, entry.getValue().isStringSet)
+                        + ");\n", formatParams);
             } else {
                 builder.addStatement("attribute = map.get($S)", entry.getKey());
-                var expression = buildAttributeDecodeExpression("attribute", entry.getValue().codecClass, entry.getValue().returnType, formatParams);
+                var expression = buildAttributeDecodeExpression("attribute", entry.getValue().codecClass, entry.getValue().returnType, formatParams, entry.getValue().isStringSet);
                 if (ignoreNulls || entry.getValue().returnType.getKind().isPrimitive()) {
                     // With ignore nulls or a primitive type, we ignore null attributes.
                     // Primitive types perhaps should throw exceptions when they see an explicit null value, but that is
                     // a dangerous game to play.
                     builder.beginControlFlow("if (attribute != null && attribute.nul() != $T.TRUE)", Boolean.class)
-                        .addNamedCode("result." + entry.getValue().getSetterName() + "("
-                                          + expression
-                                          + ");\n", formatParams)
-                        .endControlFlow();
+                            .addNamedCode("result." + entry.getValue().getSetterName() + "("
+                                    + expression
+                                    + ");\n", formatParams)
+                            .endControlFlow();
                 } else {
                     // If we have a nullable field and we don't ignore nulls, then we explicitly set the value to null.
                     // This will be unnecessary in most cases, but if the class has a nullable field with a non-null value
                     // then it will be needed.
                     formatParams.put("b", Boolean.class);
                     builder.addNamedCode("result." + entry.getValue().getSetterName() + "(attribute == null || attribute.nul() == $b:T.TRUE ? null : "
-                                             + expression + ");\n", formatParams);
+                            + expression + ");\n", formatParams);
                 }
             }
         }
@@ -712,14 +724,14 @@ public class CtClassGenerator {
         var sortT = TypeVariableName.get("IndexSortT");
         var returnT = ParameterizedTypeName.get(ClassName.get(DynamoIndex.class), TypeName.get(itemType.asType()), partitionT, sortT);
         var builder = MethodSpec.methodBuilder("getIndex")
-                          .addModifiers(Modifier.PUBLIC)
-                          .addAnnotation(Override.class)
-                          .addTypeVariable(partitionT)
-                          .addTypeVariable(sortT)
-                          .returns(returnT)
-                          .addParameter(String.class, "name")
-                          .addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), partitionT), "partitionClass")
-                          .addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), sortT), "sortClass");
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .addTypeVariable(partitionT)
+                .addTypeVariable(sortT)
+                .returns(returnT)
+                .addParameter(String.class, "name")
+                .addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), partitionT), "partitionClass")
+                .addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), sortT), "sortClass");
         switch (indexes.size()) {
             case 0:
                 addGetIndexNoIndexesCase(builder);
@@ -740,8 +752,8 @@ public class CtClassGenerator {
      */
     private void addGetIndexNoIndexesCase(MethodSpec.Builder builder) {
         builder.addStatement("throw new $T($S)", UnsupportedOperationException.class,
-            "Class " + itemType.getSimpleName() + " has no secondary indexes. Maybe you are missing @"
-                + DynamoSecondaryPartitionKey.class.getSimpleName() + " annotations").build();
+                "Class " + itemType.getSimpleName() + " has no secondary indexes. Maybe you are missing @"
+                        + DynamoSecondaryPartitionKey.class.getSimpleName() + " annotations").build();
     }
 
     /**
@@ -760,22 +772,22 @@ public class CtClassGenerator {
         var partitionType = (DeclaredType)attributes.get(entry.getValue().getPartitonAttribute()).boxedReturnType;
         var sortType = (DeclaredType)attributes.get(entry.getValue().getSortAttribute()).boxedReturnType;
         builder.beginControlFlow("if (name.equals($S))", entry.getKey())
-            .beginControlFlow("if (((partitionClass == null) || (partitionClass == $T.class))"
-                                  + " && ((sortClass == null) || (sortClass == $T.class)))", partitionType, sortType)
-            .addStatement(upcaseFirst("return ($T)get", entry.getKey()) + "Index()", returnT)
-            .nextControlFlow("else")
-            .addStatement("throw new $T($S + partitionClass.getSimpleName() + $S + sortClass.getSimpleName())",
-                IllegalArgumentException.class, "Incorrect key types for index " + entry.getKey() + ", expected: "
-                                                    + partitionType.asElement().getSimpleName()
-                                                    + " and "
-                                                    + sortType.asElement().getSimpleName()
-                                                    + ", got: ",
-                " and ")
-            .endControlFlow()
-            .nextControlFlow("else")
-            .addStatement("throw new $T($S + name)", IllegalArgumentException.class, "Unknown index: ")
-            .endControlFlow()
-            .build();
+                .beginControlFlow("if (((partitionClass == null) || (partitionClass == $T.class))"
+                        + " && ((sortClass == null) || (sortClass == $T.class)))", partitionType, sortType)
+                .addStatement(upcaseFirst("return ($T)get", entry.getKey()) + "Index()", returnT)
+                .nextControlFlow("else")
+                .addStatement("throw new $T($S + partitionClass.getSimpleName() + $S + sortClass.getSimpleName())",
+                        IllegalArgumentException.class, "Incorrect key types for index " + entry.getKey() + ", expected: "
+                                + partitionType.asElement().getSimpleName()
+                                + " and "
+                                + sortType.asElement().getSimpleName()
+                                + ", got: ",
+                        " and ")
+                .endControlFlow()
+                .nextControlFlow("else")
+                .addStatement("throw new $T($S + name)", IllegalArgumentException.class, "Unknown index: ")
+                .endControlFlow()
+                .build();
     }
 
     /**
@@ -785,27 +797,27 @@ public class CtClassGenerator {
      */
     private void addGetIndexMultipleIndexesCase(MethodSpec.Builder builder, ParameterizedTypeName returnT) {
         builder.addStatement("$T expectedPartitionClass", ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)))
-            .addStatement("$T expectedSortClass", ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)))
-            .addStatement("$T index", ParameterizedTypeName.get(ClassName.get(DynamoIndex.class),
-                TypeName.get(itemType.asType()), WildcardTypeName.subtypeOf(Object.class), WildcardTypeName.subtypeOf(Object.class)))
-            .beginControlFlow("switch(name)");
+                .addStatement("$T expectedSortClass", ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)))
+                .addStatement("$T index", ParameterizedTypeName.get(ClassName.get(DynamoIndex.class),
+                        TypeName.get(itemType.asType()), WildcardTypeName.subtypeOf(Object.class), WildcardTypeName.subtypeOf(Object.class)))
+                .beginControlFlow("switch(name)");
         for (var indexName : indexes.keySet()) {
             var metadata = indexes.get(indexName);
             builder.addCode("case $S:\n", indexName)
-                .addStatement("expectedPartitionClass = $T.class", attributes.get(metadata.getPartitonAttribute()).boxedReturnType)
-                .addStatement("expectedSortClass = $T.class", attributes.get(metadata.getSortAttribute()).boxedReturnType)
-                .addStatement(upcaseFirst("index = get", indexName) + "Index()")
-                .addStatement("break");
+                    .addStatement("expectedPartitionClass = $T.class", attributes.get(metadata.getPartitonAttribute()).boxedReturnType)
+                    .addStatement("expectedSortClass = $T.class", attributes.get(metadata.getSortAttribute()).boxedReturnType)
+                    .addStatement(upcaseFirst("index = get", indexName) + "Index()")
+                    .addStatement("break");
         }
         builder.addCode("default:\n")
-            .addStatement("throw new $T($S + name)", IllegalArgumentException.class,
-                "Unknown index name: ");
+                .addStatement("throw new $T($S + name)", IllegalArgumentException.class,
+                        "Unknown index name: ");
         builder.endControlFlow();
         builder.beginControlFlow("if (((partitionClass != null) && (partitionClass != expectedPartitionClass))"
-                                     + " || ((sortClass != null) && (sortClass != expectedSortClass)))")
-            .addStatement("throw new $T($S + name + $S + expectedPartitionClass.getSimpleName() + $S + expectedSortClass.getSimpleName() + $S + partitionClass.getSimpleName() + $S + sortClass.getSimpleName())",
-                IllegalArgumentException.class, "Incorrect key types for index ", ", expected: ", " and ", ", got: ", " and ")
-            .endControlFlow();
+                + " || ((sortClass != null) && (sortClass != expectedSortClass)))")
+                .addStatement("throw new $T($S + name + $S + expectedPartitionClass.getSimpleName() + $S + expectedSortClass.getSimpleName() + $S + partitionClass.getSimpleName() + $S + sortClass.getSimpleName())",
+                        IllegalArgumentException.class, "Incorrect key types for index ", ", expected: ", " and ", ", got: ", " and ")
+                .endControlFlow();
         builder.addStatement("return ($T)index", returnT);
     }
 
@@ -817,30 +829,30 @@ public class CtClassGenerator {
      */
     private MethodSpec buildGetExclusiveStartKeyMethod(String indexPartitionKeyAttribute, String indexSortKeyAttribute) {
         var builder = MethodSpec.methodBuilder("getExclusiveStartKey")
-                          .addModifiers(Modifier.PROTECTED)
-                          .addAnnotation(Override.class)
-                          .returns(String.class)
-                          .addParameter(ParameterizedTypeName.get(Map.class, String.class, AttributeValue.class), "item")
-                          .addStatement("$T builder = new $T()", StringBuilder.class, StringBuilder.class);
+                .addModifiers(Modifier.PROTECTED)
+                .addAnnotation(Override.class)
+                .returns(String.class)
+                .addParameter(ParameterizedTypeName.get(Map.class, String.class, AttributeValue.class), "item")
+                .addStatement("$T builder = new $T()", StringBuilder.class, StringBuilder.class);
         // Add our partition key to the start key
         builder.addStatement(writeGetExclusiveStartStatement(indexPartitionKeyAttribute));
 
         // If we have a sort key, add it to the start key
         if (indexSortKeyAttribute != null) {
             builder.addStatement("builder.append(',')")
-                .addStatement(writeGetExclusiveStartStatement(indexSortKeyAttribute));
+                    .addStatement(writeGetExclusiveStartStatement(indexSortKeyAttribute));
         }
 
         // If we are an index, and our table's partition key that isn't our partition or sort keys, then add it
         if (!partitionKeyAttribute.equals(indexPartitionKeyAttribute) && !partitionKeyAttribute.equals(indexSortKeyAttribute)) {
             builder.addStatement("builder.append(',')")
-                .addStatement(writeGetExclusiveStartStatement(partitionKeyAttribute));
+                    .addStatement(writeGetExclusiveStartStatement(partitionKeyAttribute));
         }
 
         // If we are an index, and our table has a sort key that isn't our partition or sort keys, then add it
         if ((sortKeyAttribute != null) && !sortKeyAttribute.equals(indexPartitionKeyAttribute) && !sortKeyAttribute.equals(indexSortKeyAttribute)) {
             builder.addStatement("builder.append(',')")
-                .addStatement(writeGetExclusiveStartStatement(sortKeyAttribute));
+                    .addStatement(writeGetExclusiveStartStatement(sortKeyAttribute));
         }
         return builder.addStatement("return builder.toString()").build();
     }
@@ -852,11 +864,11 @@ public class CtClassGenerator {
      */
     private CodeBlock writeGetExclusiveStartStatement(String attributeName) {
         return CodeBlock.builder()
-                   .add("appendExclusiveStartValue(builder, item.get($S)."
-                            + (typeTools.isNumber(attributes.get(attributeName).returnType)
-                               ? "n())"
-                               : "s())"),
-                       attributeName).build();
+                .add("appendExclusiveStartValue(builder, item.get($S)."
+                                + (typeTools.isNumber(attributes.get(attributeName).returnType)
+                                ? "n())"
+                                : "s())"),
+                        attributeName).build();
     }
 
     /**
@@ -868,10 +880,10 @@ public class CtClassGenerator {
     private MethodSpec buildDecodeExclusiveStartMethod(String indexPartitionKeyAttribute, String indexSortKeyAttribute) {
         var avMap = ParameterizedTypeName.get(Map.class, String.class, AttributeValue.class);
         var builder = MethodSpec.methodBuilder("decodeExclusiveStart")
-                          .addModifiers(Modifier.PROTECTED)
-                          .addAnnotation(Override.class)
-                          .returns(avMap)
-                          .addParameter(String.class, "exclusiveStart");
+                .addModifiers(Modifier.PROTECTED)
+                .addAnnotation(Override.class)
+                .returns(avMap)
+                .addParameter(String.class, "exclusiveStart");
         var numEntries = 1;
         var values = new HashMap<String, Object>();
         values.put("av", AttributeValue.class);
@@ -889,9 +901,9 @@ public class CtClassGenerator {
         }
         template.append(")");
         return builder
-                   .addStatement("$T[] values = new $T[" + numEntries + "]", String.class, String.class)
-                   .addStatement("splitExclusiveStartValues(values, exclusiveStart)")
-                   .addStatement(CodeBlock.builder().addNamed(template.toString(), values).build()).build();
+                .addStatement("$T[] values = new $T[" + numEntries + "]", String.class, String.class)
+                .addStatement("splitExclusiveStartValues(values, exclusiveStart)")
+                .addStatement(CodeBlock.builder().addNamed(template.toString(), values).build()).build();
     }
 
     /**
@@ -906,14 +918,14 @@ public class CtClassGenerator {
             template.append(", ");
         }
         template.append("$a")
-            .append(index)
-            .append(":S, $av:T.builder().")
-            .append(typeTools.isNumber(attributes.get(attributeName).returnType)
-                               ? 'n'
-                               : 's')
-            .append("(values[")
-            .append(index)
-            .append("]).build()");
+                .append(index)
+                .append(":S, $av:T.builder().")
+                .append(typeTools.isNumber(attributes.get(attributeName).returnType)
+                        ? 'n'
+                        : 's')
+                .append("(values[")
+                .append(index)
+                .append("]).build()");
         values.put("a" + index, attributeName);
     }
 
@@ -942,48 +954,22 @@ public class CtClassGenerator {
 
     /**
      * Build an expression that encodes an attribute
-     * @param attributeName The name of the attribute
      * @param valueVar The variable that holds the attribute value
+     * @param metadata The metadata for this attribute
      * @param formatData Data that will be substituted into the template we return
-     * @return The attribute encoding expression
-     * @throws CtException If there is an error building the expression
-     */
-    private String buildAttributeEncodeExpression(String attributeName, String valueVar, Map<String, Object> formatData) throws CtException {
-        var metadata = Objects.requireNonNull(attributes.get(Objects.requireNonNull(attributeName, "Null attribute name")), "No metadata for " + attributeName);
-        if (valueVar == null) {
-            valueVar = "value." + metadata.getGetterName() + "()";
-        }
-        return buildAttributeEncodeExpression(valueVar, metadata.codecClass, metadata.returnType, formatData, metadata.element);
-    }
-
-    /**
-     * Build an expression that encodes an attribute
-     * @param valueVar The variable that holds the attribute value
-     * @param codecClass The class to use to encode/decode the value
-     * @param returnType The type of the value
-     * @param formatData Data that will be substituted into the template we return
-     * @param element The element to identify in errors
-     * @return The attribute encoding expression
-     * @throws CtException If there is an error building the expression
-     */
-    private String buildAttributeEncodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData,
-                                                  Element element) throws CtException {
-        return buildAttributeEncodeExpression(valueVar, codecClass, returnType, formatData, element, false);
-    }
-
-    /**
-     * Build an expression that encodes an attribute
-     * @param valueVar The variable that holds the attribute value
-     * @param codecClass The class to use to encode/decode the value
-     * @param returnType The type of the value
-     * @param formatData Data that will be substituted into the template we return
-     * @param element The element to identify in errors
      * @param toBareString If set, we convert it to a string. Otherwise to an AttributeValue.
      * @return The attribute encoding expression
      * @throws CtException If there is an error building the expression
      */
-    private String buildAttributeEncodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData,
-                                                  Element element, boolean toBareString) throws CtException {
+    private String buildAttributeEncodeExpression(String valueVar, AttributeMetadata metadata, Map<String, Object> formatData, boolean toBareString) throws CtException {
+        if (valueVar == null) {
+            valueVar = "value." + metadata.getGetterName() + "()";
+        }
+
+        var codecClass = metadata.codecClass;
+        var returnType = metadata.returnType;
+        var element = metadata.element;
+        var isStringSet = metadata.isStringSet;
 
         if (codecClass == null) {
             var avId = getUniqueId("t");
@@ -1040,9 +1026,10 @@ public class CtClassGenerator {
                 } else {
                     var arrays = getUniqueId("t");
                     formatData.put(arrays, Arrays.class);
+                    AttributeMetadata innerMetadata = new AttributeMetadata("name", innerType, null, null, false, element);
                     return "$" + avId + ":T.builder().l($" + arrays + ":T.stream(" + valueVar + ")"
                             + ".map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
-                            + buildAttributeEncodeExpression(tmpVar, null, innerType, formatData, element) + ")"
+                            + buildAttributeEncodeExpression(tmpVar, innerMetadata, formatData, false) + ")"
                             + ".collect($" + collectors + ":T.toList())).build()";
                 }
             } else if (typeTools.types.isSubtype(returnType, typeTools.listMirror) || typeTools.types.isSubtype(returnType, typeTools.setMirror)) {
@@ -1055,10 +1042,11 @@ public class CtClassGenerator {
                 var collectors = getUniqueId("t");
                 formatData.put(collectors, Collectors.class);
                 formatData.put(codecType, DynamoCodec.class);
-                return "$" + avId + ":T.builder().l(" + valueVar + ".stream()"
+                AttributeMetadata innerMetadata = new AttributeMetadata("name", innerType, null, null, false, element);
+                return "$" + avId + ":T.builder()" + (isStringSet ? ".ss(" + valueVar + ")" : ".l(" + valueVar + ".stream()"
                         + ".map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
-                        + buildAttributeEncodeExpression(tmpVar, null, innerType, formatData, element) + ")"
-                        + ".collect($" + collectors + ":T.toList())).build()";
+                        + buildAttributeEncodeExpression(tmpVar, innerMetadata, formatData, false) + ")"
+                        + ".collect($" + collectors + ":T.toList()))") + ".build()";
             } else if (typeTools.types.isSubtype(returnType, typeTools.mapMirror)) {
                 if (toBareString) {
                     throw new CtException("Cannot convert a list or a set to a plain string", element);
@@ -1070,13 +1058,15 @@ public class CtClassGenerator {
                 var collectors = getUniqueId("t");
                 formatData.put(collectors, Collectors.class);
                 formatData.put(codecType, DynamoCodec.class);
+                AttributeMetadata innerMetadata1 = new AttributeMetadata("name", keyType, null, null, false, element);
+                AttributeMetadata innerMetadata2 = new AttributeMetadata("name", valueType, null, null, false, element);
                 return "$" + avId + ":T.builder().m(" + valueVar + ".entrySet().stream()"
-                           + ".collect($" + collectors + ":T.toMap(" + entryVar + " -> "
-                           + buildAttributeEncodeExpression(entryVar + ".getKey()", null, keyType, formatData, element, true)
-                           + ", " + entryVar + " -> "
-                           + entryVar + ".getValue() == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
-                           + buildAttributeEncodeExpression(entryVar + ".getValue()", null, valueType, formatData, element)
-                           + "))).build()";
+                        + ".collect($" + collectors + ":T.toMap(" + entryVar + " -> "
+                        + buildAttributeEncodeExpression(entryVar + ".getKey()", innerMetadata1, formatData, true)
+                        + ", " + entryVar + " -> "
+                        + entryVar + ".getValue() == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
+                        + buildAttributeEncodeExpression(entryVar + ".getValue()", innerMetadata2, formatData, false)
+                        + "))).build()";
             } else if (typeTools.types.isSubtype(returnType, typeTools.enumMirror)) {
                 return wrapInAttributeValue(toBareString, valueVar + ".name()", "s", avId);
             } else if (typeTools.equal(returnType, typeTools.booleanMirror)) {
@@ -1115,12 +1105,12 @@ public class CtClassGenerator {
      * @param subExpression The string-returning expression to wrap
      * @param avType The type of attribute value, "n" or "s"
      * @param avId The ID of the attribute value class in our statement
-     * @return The expression that properly wrapes the value
+     * @return The expression that properly wraps the value
      */
     private String wrapInAttributeValue(boolean toBareString, String subExpression, String avType, String avId) {
         return toBareString
-               ? subExpression
-               : "$" + avId + ":T.builder()." + avType + "(" + subExpression + ").build()";
+                ? subExpression
+                : "$" + avId + ":T.builder()." + avType + "(" + subExpression + ").build()";
     }
 
     /**
@@ -1129,12 +1119,13 @@ public class CtClassGenerator {
      * @param codecClass The class of codec to use, or null to not use a codec
      * @param returnType The data type to return
      * @param formatData Values that will be plugged into the string returned
+     * @param isStringSet Is the attribute a set of strings?
      * @return An expression to decode the given attribute
      * @throws CtException If there is an error building the expression
      */
-    private String buildAttributeDecodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData)
-        throws CtException {
-        return buildAttributeDecodeExpression(valueVar, codecClass, returnType, formatData, false);
+    private String buildAttributeDecodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData, boolean isStringSet)
+            throws CtException {
+        return buildAttributeDecodeExpression(valueVar, codecClass, returnType, formatData, isStringSet, false);
     }
 
     /**
@@ -1143,13 +1134,15 @@ public class CtClassGenerator {
      * @param codecClass The class of codec to use, or null to not use a codec
      * @param returnType The data type to return
      * @param formatData Values that will be plugged into the string returned
+     * @param isStringSet Is the attribute a set of strings?
      * @param bareString If set, valueVar is a string; otherwise it is an AttributeValue.
      * @return An expression to decode the given attribute
      * @throws CtException If there is an error building the expression
      */
     private String buildAttributeDecodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData,
-                                                  boolean bareString)
-        throws CtException {
+                                                  boolean isStringSet, boolean bareString)
+
+            throws CtException {
         if (codecClass == null) {
             var typeId = getUniqueId("t");
             switch (returnType.getKind()) {
@@ -1204,7 +1197,7 @@ public class CtClassGenerator {
                 } else {
                     return valueVar + ".l().stream()"
                             + ".map(" + tmpVar + " -> " + tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
-                            + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData) + ")"
+                            + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData, false) + ")"
                             + ".toArray(" + innerType + "[]::new)";
                 }
             } else if (typeTools.types.isSubtype(returnType, typeTools.listMirror) || typeTools.types.isSubtype(returnType, typeTools.setMirror)) {
@@ -1215,14 +1208,22 @@ public class CtClassGenerator {
                 var innerType = returnType.getKind() == TypeKind.ARRAY ? ((ArrayType) returnType).getComponentType()
                         : ((DeclaredType) returnType).getTypeArguments().get(0);
                 var tmpVar = getUniqueId("t");
+
+                var listOrSetType = getUniqueId("t");
+                var listOrSetClass = typeTools.types.isSubtype(returnType, typeTools.listMirror) ? ArrayList.class : HashSet.class;
+                formatData.put(listOrSetType, ParameterizedTypeName.get(listOrSetClass, String.class));
+
                 var boolType = getUniqueId("t");
                 formatData.put(boolType, Boolean.class);
                 var collectors = getUniqueId("t");
                 formatData.put(collectors, Collectors.class);
-                return valueVar + ".l().stream()"
+
+                return (isStringSet ? "new $" + listOrSetType + ":T(" + valueVar + ".ss())"
+                        : valueVar + ".l().stream()"
                         + ".map(" + tmpVar + " -> " + tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
-                        + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData) + ")"
-                        + ".collect($" + collectors + ":T." + collectorFunc + "())";
+                        + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData, false)
+                        + ")" + ".collect($" + collectors + ":T." + collectorFunc + "())");
+
             } else if (typeTools.types.isSubtype(returnType, typeTools.mapMirror)) {
                 if (bareString) {
                     throw new CtException("Cannot convert a bare string value to a map");
@@ -1237,12 +1238,12 @@ public class CtClassGenerator {
                 formatData.put(boolId, Boolean.class);
                 // Would be nice to use Collectors.toMap(), but that fails when there are null values, which we want to support.
                 return valueVar + ".m().entrySet().stream()"
-                           + ".collect($" + hashMapId + ":T::new, (" + mapVar + ", " + entryVar + ") -> "
-                           + mapVar + ".put("
-                           + buildAttributeDecodeExpression(entryVar + ".getKey()", null, keyType, formatData, true)
-                           + ", " + entryVar + ".getValue().nul() == $" + boolId + ":T.TRUE ? null : "
-                           + buildAttributeDecodeExpression(entryVar + ".getValue()", null, valueType, formatData)
-                           + "), $" + hashMapId + ":T::putAll)";
+                        + ".collect($" + hashMapId + ":T::new, (" + mapVar + ", " + entryVar + ") -> "
+                        + mapVar + ".put("
+                        + buildAttributeDecodeExpression(entryVar + ".getKey()", null, keyType, formatData, false, true)
+                        + ", " + entryVar + ".getValue().nul() == $" + boolId + ":T.TRUE ? null : "
+                        + buildAttributeDecodeExpression(entryVar + ".getValue()", null, valueType, formatData, false)
+                        + "), $" + hashMapId + ":T::putAll)";
             } else if (typeTools.isNumber(returnType)) {
                 formatData.put(typeId, returnType);
                 return "$" + typeId + ":T.valueOf(" + valueVar + (bareString ? ")" : ".n())");
@@ -1295,10 +1296,10 @@ public class CtClassGenerator {
         var formatData = new HashMap<String, Object>();
         builder.addStatement("$T list = av.l()", ParameterizedTypeName.get(List.class, AttributeValue.class))
                 .addStatement(primType + "[] " + arrayVar + " = new " + primType
-                    + "[list.size()]")
+                        + "[list.size()]")
                 .beginControlFlow("for (int i = 0; i < list.size(); i++)")
                 .addStatement(CodeBlock.builder()
-                        .addNamed(arrayVar + "[i] = " + buildAttributeDecodeExpression("list.get(i)", null, type, formatData), formatData)
+                        .addNamed(arrayVar + "[i] = " + buildAttributeDecodeExpression("list.get(i)", null, type, formatData, false), formatData)
                         .build())
                 .endControlFlow()
                 .addStatement("return " + arrayVar);
@@ -1325,13 +1326,14 @@ public class CtClassGenerator {
         formatData.put(collectors, Collectors.class);
         formatData.put(codecType, DynamoCodec.class);
         var listVar = getUniqueId("t");
+        AttributeMetadata metadata = new AttributeMetadata("name", type, null, null, false, element);
         builder.addStatement("$T " + listVar
-                + " = new $T()", ParameterizedTypeName.get(List.class, AttributeValue.class),
+                        + " = new $T()", ParameterizedTypeName.get(List.class, AttributeValue.class),
                 ParameterizedTypeName.get(ArrayList.class, AttributeValue.class))
                 .beginControlFlow("for (int i = 0; i < array.length; i++)")
                 .addStatement(CodeBlock.builder()
                         .addNamed(listVar + ".add("
-                                + buildAttributeEncodeExpression("array[i]", null, type, formatData, element)
+                                + buildAttributeEncodeExpression("array[i]", metadata, formatData, false)
                                 + ")", formatData).build())
                 .endControlFlow()
                 .addStatement("return $T.builder().l(" + listVar + ").build()", AttributeValue.class);

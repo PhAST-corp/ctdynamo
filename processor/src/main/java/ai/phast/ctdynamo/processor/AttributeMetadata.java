@@ -25,6 +25,9 @@ class AttributeMetadata {
     /** The codec to use for this attribute, or null if we use a default codec */
     public final TypeName codecClass;
 
+    /** Is this attribute a set of strings */
+    public final Boolean isStringSet;
+
     /**
      * The element that we should blame for any errors this attribute causes. This is the thing annotated with
      * a Dynamo annotation, or the getter if this is from a default annotation.
@@ -45,14 +48,16 @@ class AttributeMetadata {
      * @param returnType       The return type of the getter
      * @param boxedReturnType  The boxed return type
      * @param codecClass       The codec to use on this attribute, or null if none is specified
+     * @param isStringSet      Whether the attribute is a set of strings
      * @param element The element to indicate when we have errors related to this attribute
+     * @throws CtException If an attribute tagged as string set is neither a list nor set
      */
-    AttributeMetadata(String name, TypeMirror returnType, TypeMirror boxedReturnType, TypeName codecClass,
-                      Element element) {
+    AttributeMetadata(String name, TypeMirror returnType, TypeMirror boxedReturnType, TypeName codecClass, Boolean isStringSet, Element element)  {
         this.name = Objects.requireNonNull(name);
         this.returnType = returnType;
         this.boxedReturnType = boxedReturnType;
         this.codecClass = codecClass;
+        this.isStringSet = isStringSet;
         this.element = element;
     }
 
@@ -65,6 +70,7 @@ class AttributeMetadata {
         returnType = null;
         boxedReturnType = null;
         codecClass = null;
+        isStringSet = false;
         this.element = element;
     }
 

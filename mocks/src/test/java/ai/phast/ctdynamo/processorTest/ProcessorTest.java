@@ -57,6 +57,36 @@ public class ProcessorTest {
     }
 
     @Test
+    public void testStringSetAnnotation() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(StringSetItemDynamoTable.class);
+
+        // Item 1: An annotated string set and an unannotated string set
+        var item1 = new StringSetItem("item1",
+                Set.of("this", "is", "an", "annotated", "set"),
+                Set.of("this", "set", "is", "not", "annotated"),
+                List.of("this", "is", "an", "annotated", "list"),
+                List.of("this", "list", "is", "not", "annotated"));
+
+        // Act
+        var item1Encoded = table.encode(item1);
+
+        // Verify
+        var item1Decoded = table.decode(item1Encoded);
+        Assertions.assertEquals(item1, item1Decoded);
+
+        Assertions.assertTrue(item1Encoded.get("stringSet").hasSs()); // list of strings
+        Assertions.assertFalse(item1Encoded.get("stringSet").hasL()); // list of attributes
+        Assertions.assertFalse(item1Encoded.get("stringSetNoAnnotation").hasSs());
+        Assertions.assertTrue(item1Encoded.get("stringSetNoAnnotation").hasL());
+
+        Assertions.assertTrue(item1Encoded.get("stringList").hasSs());
+        Assertions.assertFalse(item1Encoded.get("stringList").hasL());
+        Assertions.assertFalse(item1Encoded.get("stringListNoAnnotation").hasSs());
+        Assertions.assertTrue(item1Encoded.get("stringListNoAnnotation").hasL());
+    }
+
+    @Test
     public void testCharAsAttribute_shouldBeEncodedAndDecodedProperly() {
         // Setup
         var table = DynamoMockUtil.buildMockTable(CharItemDynamoTable.class);
