@@ -109,14 +109,20 @@ public class CapacityUsed {
      * @param other The other capacity to add
      */
     public void add(CapacityUsed other) {
-        this.tableRead += other.tableRead;
-        this.tableWrite += other.tableWrite;
-        this.totalRead += other.totalRead;
-        this.totalWrite += other.totalWrite;
+        if (other == null) {
+            return;
+        }
+        tableRead += other.tableRead;
+        tableWrite += other.tableWrite;
+        totalRead += other.totalRead;
+        totalWrite += other.totalWrite;
 
-        for (var key : other.indexes.keySet()) {
-            this.indexes.merge(key, other.indexes.get(key),
-                (a, b) -> new ReadWrite(a.read + b.read, a.write + b.write));
+        if (other.indexes != null) {
+            if (indexes == null) {
+                indexes = new HashMap<>(other.indexes);
+            } else {
+                other.indexes.forEach((key, value) -> indexes.computeIfAbsent(key, x -> new ReadWrite()).add(value));
+            }
         }
     }
 
@@ -250,6 +256,11 @@ public class CapacityUsed {
             }
             var peer = (ReadWrite)o;
             return (read == peer.read) && (write == peer.write);
+        }
+
+        private void add(ReadWrite other) {
+            read += other.read;
+            write += other.write;
         }
     }
 }

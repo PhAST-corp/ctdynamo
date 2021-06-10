@@ -395,7 +395,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                 result.getCapacity().add(cap);
             }
         }
-        if (response.hasUnprocessedKeys()) {
+        if (response.hasUnprocessedKeys() && !response.unprocessedKeys().isEmpty()) {
             for (var keyMap : response.unprocessedKeys().get(getTableName()).keys()) {
                 result.getUnprocessedValues().add(new Key<>(getPartitionValue(keyMap.get(getPartitionKeyAttribute())),
                     getSortValue(keyMap.get(getSortKeyAttribute()))));
