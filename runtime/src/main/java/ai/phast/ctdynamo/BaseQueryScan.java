@@ -201,7 +201,7 @@ abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?>, ThisT exten
      * Get the index object we are reading
      * @return Our index
      */
-    final IndexT getIndex() {
+    public final IndexT getIndex() {
         return index;
     }
 

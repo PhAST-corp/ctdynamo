@@ -229,6 +229,15 @@ public class CapacityUsed {
         }
 
         /**
+         * Add the given ReadWrite to this ReadWrite
+         * @param other The ReadWrite to add
+         */
+        private void add(ReadWrite other) {
+            read += other.read;
+            write += other.write;
+        }
+
+        /**
          * The read capacity consumed on this index
          * @return The read capacity consumed on this index
          */
@@ -256,11 +265,6 @@ public class CapacityUsed {
             }
             var peer = (ReadWrite)o;
             return (read == peer.read) && (write == peer.write);
-        }
-
-        private void add(ReadWrite other) {
-            read += other.read;
-            write += other.write;
         }
     }
 }
