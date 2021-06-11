@@ -63,10 +63,14 @@ public class ProcessorTest {
 
         // Item 1: An annotated string set and an unannotated string set
         var item1 = new StringSetItem("item1",
-                Set.of("this", "is", "an", "annotated", "set"),
-                Set.of("this", "set", "is", "not", "annotated"),
-                List.of("this", "is", "an", "annotated", "list"),
-                List.of("this", "list", "is", "not", "annotated"));
+                Set.of("annotated", "set", "of", "strings"),
+                Set.of("unannotated", "set", "of", "strings"),
+                List.of("annotated", "list", "of", "strings"),
+                List.of("unannotated", "list", "of", "strings"),
+                Set.of(StringSetItem.Number.ONE, StringSetItem.Number.TWO),
+                Set.of(StringSetItem.Number.THREE, StringSetItem.Number.FOUR),
+                List.of(StringSetItem.Number.ONE, StringSetItem.Number.THREE),
+                List.of(StringSetItem.Number.TWO, StringSetItem.Number.FOUR));
 
         // Act
         var item1Encoded = table.encode(item1);
@@ -84,6 +88,16 @@ public class ProcessorTest {
         Assertions.assertFalse(item1Encoded.get("stringList").hasL());
         Assertions.assertFalse(item1Encoded.get("stringListNoAnnotation").hasSs());
         Assertions.assertTrue(item1Encoded.get("stringListNoAnnotation").hasL());
+
+        Assertions.assertTrue(item1Encoded.get("enumSet").hasSs());
+        Assertions.assertFalse(item1Encoded.get("enumSet").hasL());
+        Assertions.assertFalse(item1Encoded.get("enumSetNoAnnotation").hasSs());
+        Assertions.assertTrue(item1Encoded.get("enumSetNoAnnotation").hasL());
+
+        Assertions.assertTrue(item1Encoded.get("enumList").hasSs());
+        Assertions.assertFalse(item1Encoded.get("enumList").hasL());
+        Assertions.assertFalse(item1Encoded.get("enumListNoAnnotation").hasSs());
+        Assertions.assertTrue(item1Encoded.get("enumListNoAnnotation").hasL());
     }
 
     @Test

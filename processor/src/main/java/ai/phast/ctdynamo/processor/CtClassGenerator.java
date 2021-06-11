@@ -460,8 +460,10 @@ public class CtClassGenerator {
         }
         if (declaringElement.getAnnotation(DynamoStringSet.class) != null) {
             if (!(typeTools.types.isSubtype(attributeType, typeTools.stringSetMirror)
-                    || typeTools.types.isSubtype(attributeType, typeTools.stringListMirror))) {
-                throw new CtException("Attributes tagged as DynamoStringSet must be of type List<? extends String> or Set<? extends String>", declaringElement);
+                    || typeTools.types.isSubtype(attributeType, typeTools.stringListMirror)
+                    || typeTools.types.isSubtype(attributeType, typeTools.enumSetMirror)
+                    || typeTools.types.isSubtype(attributeType, typeTools.enumListMirror))) {
+                throw new CtException("Attributes tagged as DynamoStringSet must be of type List<? extends String>, Set<? extends String>, List<? extends Enum>, or Set<? extends Enum>", declaringElement);
             }
             isStringSet = true;
             annotationFound = true;
@@ -1042,11 +1044,15 @@ public class CtClassGenerator {
                 var collectors = getUniqueId("t");
                 formatData.put(collectors, Collectors.class);
                 formatData.put(codecType, DynamoCodec.class);
+
                 AttributeMetadata innerMetadata = new AttributeMetadata("name", innerType, null, null, false, element);
-                return "$" + avId + ":T.builder()" + (isStringSet ? ".ss(" + valueVar + ")" : ".l(" + valueVar + ".stream()"
-                        + ".map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
-                        + buildAttributeEncodeExpression(tmpVar, innerMetadata, formatData, false) + ")"
-                        + ".collect($" + collectors + ":T.toList()))") + ".build()";
+                return "$" + avId + ":T.builder()"
+                        + (isStringSet ? ".ss(" + valueVar
+                        + (typeTools.types.isSubtype(innerType, typeTools.enumMirror) ? ".stream().map(Enum::toString).collect($" + collectors + ":T.toList())" : "") + ")"
+                        : ".l(" + valueVar + ".stream().map(" + tmpVar + " -> " + tmpVar + " == null ? $" + codecType + ":T.NULL_ATTRIBUTE_VALUE : "
+                        + buildAttributeEncodeExpression(tmpVar, innerMetadata, formatData, false) + ").collect($" + collectors + ":T.toList()))")
+                        + ".build()";
+
             } else if (typeTools.types.isSubtype(returnType, typeTools.mapMirror)) {
                 if (toBareString) {
                     throw new CtException("Cannot convert a list or a set to a plain string", element);
@@ -1140,9 +1146,7 @@ public class CtClassGenerator {
      * @throws CtException If there is an error building the expression
      */
     private String buildAttributeDecodeExpression(String valueVar, TypeName codecClass, TypeMirror returnType, Map<String, Object> formatData,
-                                                  boolean isStringSet, boolean bareString)
-
-            throws CtException {
+                                                  boolean isStringSet, boolean bareString) throws CtException {
         if (codecClass == null) {
             var typeId = getUniqueId("t");
             switch (returnType.getKind()) {
@@ -1207,22 +1211,25 @@ public class CtClassGenerator {
                 var collectorFunc = (typeTools.types.isSubtype(returnType, typeTools.listMirror) ? "toList" : "toSet");
                 var innerType = returnType.getKind() == TypeKind.ARRAY ? ((ArrayType) returnType).getComponentType()
                         : ((DeclaredType) returnType).getTypeArguments().get(0);
+                var innerTypeId = getUniqueId("t");
+                formatData.put(innerTypeId, innerType);
                 var tmpVar = getUniqueId("t");
 
                 var listOrSetType = getUniqueId("t");
                 var listOrSetClass = typeTools.types.isSubtype(returnType, typeTools.listMirror) ? ArrayList.class : HashSet.class;
-                formatData.put(listOrSetType, ParameterizedTypeName.get(listOrSetClass, String.class));
+                formatData.put(listOrSetType, ParameterizedTypeName.get(listOrSetClass, typeTools.types.isSubtype(innerType, typeTools.enumMirror) ? Enum.class : String.class));
 
                 var boolType = getUniqueId("t");
                 formatData.put(boolType, Boolean.class);
                 var collectors = getUniqueId("t");
                 formatData.put(collectors, Collectors.class);
 
-                return (isStringSet ? "new $" + listOrSetType + ":T(" + valueVar + ".ss())"
-                        : valueVar + ".l().stream()"
-                        + ".map(" + tmpVar + " -> " + tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
-                        + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData, false)
-                        + ")" + ".collect($" + collectors + ":T." + collectorFunc + "())");
+                return valueVar + (isStringSet ? ".ss()" : ".l()") + ".stream().map(" + tmpVar + " -> "
+                        + (isStringSet ? (typeTools.types.isSubtype(innerType, typeTools.enumMirror)
+                        ? "$" + innerTypeId + ":T.valueOf(" + tmpVar + ")" : tmpVar)
+                        : tmpVar + ".nul() == $" + boolType + ":T.TRUE ? null : "
+                        + buildAttributeDecodeExpression(tmpVar, null, innerType, formatData, false))
+                        + ").collect($" + collectors + ":T." + collectorFunc + "())";
 
             } else if (typeTools.types.isSubtype(returnType, typeTools.mapMirror)) {
                 if (bareString) {

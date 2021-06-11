@@ -71,6 +71,12 @@ public class TypeTools {
     /** Mirror type for the Set&lt;? extends java.lang.String&gt; class */
     public final TypeMirror stringSetMirror;
 
+    /** Mirror type for the List&lt;? extends java.lang.String&gt; class */
+    public final TypeMirror enumListMirror;
+
+    /** Mirror type for the Set&lt;? extends java.lang.String&gt; class */
+    public final TypeMirror enumSetMirror;
+
     /** Type utilities */
     public final Types types;
 
@@ -112,6 +118,10 @@ public class TypeTools {
                 types.getWildcardType(stringMirror, null));
         stringSetMirror = types.getDeclaredType(elements.getTypeElement(Set.class.getCanonicalName()),
                 types.getWildcardType(stringMirror, null));
+        enumListMirror = types.getDeclaredType(elements.getTypeElement(List.class.getCanonicalName()),
+                types.getWildcardType(enumMirror, null));
+        enumSetMirror = types.getDeclaredType(elements.getTypeElement(Set.class.getCanonicalName()),
+                types.getWildcardType(enumMirror, null));
         typeKindToBoxedType = Arrays.stream(TypeKind.values())
                                     .filter(TypeKind::isPrimitive)
                                     .collect(Collectors.toMap(

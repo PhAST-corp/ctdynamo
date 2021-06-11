@@ -22,6 +22,10 @@ import java.util.List;
 @AllArgsConstructor
 public class StringSetItem {
 
+    public enum Number {
+        ONE, TWO, THREE, FOUR
+    }
+
     @DynamoPartitionKey
     private String partition;
 
@@ -34,5 +38,15 @@ public class StringSetItem {
     private List<String> stringList;
 
     private List<String> stringListNoAnnotation;
+
+    @DynamoStringSet
+    private Set<Number> enumSet;
+
+    private Set<Number> enumSetNoAnnotation;
+
+    @DynamoStringSet
+    private List<Number> enumList;
+
+    private List<Number> enumListNoAnnotation;
 
 }
