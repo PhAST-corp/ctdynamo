@@ -101,6 +101,50 @@ public class ProcessorTest {
     }
 
     @Test
+    public void testStringSetAnnotation_shouldEncodeNull_whenGivenNull() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(StringSetItemDynamoTable.class);
+
+        // Item 1: An annotated string set and an unannotated string set
+        var item1 = new StringSetItem("item1",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        // Act
+        var item1Encoded = table.encode(item1);
+
+        // Verify
+        var item1Decoded = table.decode(item1Encoded);
+        Assertions.assertEquals(item1, item1Decoded);
+    }
+
+    @Test
+    public void testStringSetAnnotation_shouldThrowException_whenGivenEmpty() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(StringSetItemDynamoTable.class);
+
+        // Item 1: An annotated string set and an unannotated string set
+        var item1 = new StringSetItem("item1",
+                Set.of(),
+                Set.of(),
+                List.of(),
+                List.of(),
+                Set.of(),
+                Set.of(),
+                List.of(),
+                List.of());
+
+        // Act & Verify
+        Assertions.assertThrows(IllegalArgumentException.class, () -> table.encode(item1));
+    }
+
+    @Test
     public void testCharAsAttribute_shouldBeEncodedAndDecodedProperly() {
         // Setup
         var table = DynamoMockUtil.buildMockTable(CharItemDynamoTable.class);

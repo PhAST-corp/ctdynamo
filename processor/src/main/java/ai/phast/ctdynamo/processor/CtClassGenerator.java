@@ -634,6 +634,14 @@ public class CtClassGenerator {
                 // Non-primitives. May be null
                 var varName = getUniqueId("v");
                 builder.addStatement("$T " + varName + " = value." + entry.getValue().getGetterName() + "()", TypeName.get(entry.getValue().returnType));
+
+                if (entry.getValue().isStringSet) {
+                    builder.beginControlFlow("if (" + varName + " != null && " + varName + ".isEmpty())")
+                            .addStatement("throw new $T($S)", IllegalArgumentException.class, "Attribute " + attributeName
+                                    + " is a string set and therefore cannot be empty")
+                            .endControlFlow();
+                }
+
                 if (attributeName.equals(partitionKeyAttribute) || attributeName.equals(sortKeyAttribute)) {
                     builder.beginControlFlow("if (" + varName + " == null)")
                             .addStatement("throw new $T($S)", NullPointerException.class,
