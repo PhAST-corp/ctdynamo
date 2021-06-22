@@ -100,12 +100,12 @@ class MockDynamoClient implements DynamoDbClient {
 
     @Override
     public synchronized PutItemResponse putItem(PutItemRequest putItemRequest) {
-        var expr = putItemRequest.conditionExpression();
-        if (expr != null) {
-            var eval = new ExpressionEvaluator(expr, putItemRequest.expressionAttributeNames(), putItemRequest.expressionAttributeValues());
+        var exprString = putItemRequest.conditionExpression();
+        if (exprString != null) {
+            var expr = new Expression(exprString, putItemRequest.expressionAttributeValues(), putItemRequest.expressionAttributeNames());
             var prevValue = Optional.ofNullable(store.getItem(putItemRequest.item()))
                                 .orElse(Collections.emptyMap());
-            if (!eval.evalBool(prevValue)) {
+            if (!ExpressionEvaluator.evalBool(expr, prevValue)) {
                 throw ConditionalCheckFailedException.builder().build();
             }
         }
@@ -148,8 +148,8 @@ class MockDynamoClient implements DynamoDbClient {
             items = items.subList(0, request.limit());
         }
         if (request.filterExpression() != null) {
-            var eval = new ExpressionEvaluator(request.filterExpression(), request.expressionAttributeNames(), request.expressionAttributeValues());
-            items.removeIf(item -> !eval.evalBool(item));
+            var expr = new Expression(request.filterExpression(), request.expressionAttributeValues(), request.expressionAttributeNames());
+            items.removeIf(item -> !ExpressionEvaluator.evalBool(expr, item));
         }
         return QueryResponse.builder()
                    .items(items)
