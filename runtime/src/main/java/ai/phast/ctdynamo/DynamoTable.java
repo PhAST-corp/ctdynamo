@@ -713,36 +713,44 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * Delete an item, returning the item deleted and the capacity consumed
      * @param value An item with the same partition and sort keys as the item to delete
      * @param returnPrevious If true, then the deleted item is returned
+     * @param conditionExpression Optional expression that must evaluate to true for the delete to succeed
      * @return An extended item result with consumption and the deleted item (if any) filled in
      */
-    public final ExtendedItemResult<T> deleteItemExtended(T value, boolean returnPrevious) {
-        return deleteItemExtended(getPartitionValue(value), getSortValue(value), returnPrevious);
+    public final ExtendedItemResult<T> deleteItemExtended(T value, ConditionExpression conditionExpression, boolean returnPrevious) {
+        return deleteItemExtended(getPartitionValue(value), getSortValue(value), conditionExpression, returnPrevious);
     }
 
     /**
      * Delete an item, returning the item deleted and the capacity consumed
      * @param value The partition and sort keys of the item to delete
      * @param returnPrevious If true, then the deleted item is returned
+     * @param conditionExpression Optional expression that must evaluate to true for the delete to succeed
      * @return An extended item result with consumtion and the deleted item (if any) filled in
      */
-    public final ExtendedItemResult<T> deleteItemExtended(Key<PartitionT, SortT> value, boolean returnPrevious) {
-        return deleteItemExtended(value.getPartition(), value.getSort(), returnPrevious);
+    public final ExtendedItemResult<T> deleteItemExtended(Key<PartitionT, SortT> value, ConditionExpression conditionExpression, boolean returnPrevious) {
+        return deleteItemExtended(value.getPartition(), value.getSort(), conditionExpression, returnPrevious);
     }
 
     /**
      * Delete an item, returning the item deleted and the capacity consumed
      * @param partitionKey The partition key of the item to delete
      * @param sortKey The sort key of the item to delete
+     * @param conditionExpression Optional expression that must evaluate to true for the delete to succeed
      * @param returnPrevious If true, then the deleted item is returned
      * @return An extended item result with consumtion and the deleted item (if any) filled in
      */
-    public ExtendedItemResult<T> deleteItemExtended(PartitionT partitionKey, SortT sortKey, boolean returnPrevious) {
-        var deleteResponse = rawDeleteItem(DeleteItemRequest.builder()
-                                            .tableName(getTableName())
-                                            .key(keysToMap(partitionKey, sortKey))
-                                            .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.NONE)
-                                            .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
-                                            .build());
+    public ExtendedItemResult<T> deleteItemExtended(PartitionT partitionKey, SortT sortKey, ConditionExpression conditionExpression, boolean returnPrevious) {
+        var requestBuilder = DeleteItemRequest.builder()
+                                 .tableName(getTableName())
+                                 .key(keysToMap(partitionKey, sortKey))
+                                 .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.NONE)
+                                 .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES);
+        if (conditionExpression != null) {
+            requestBuilder.conditionExpression(conditionExpression.getExpression())
+                .expressionAttributeValues(conditionExpression.getValues())
+                .expressionAttributeNames(conditionExpression.getAttributeNames());
+        }
+        var deleteResponse = rawDeleteItem(requestBuilder.build());
         return new ExtendedItemResult<>(deleteResponse.hasAttributes() ? decode(deleteResponse.attributes())
                                                                        : null, deleteResponse.consumedCapacity());
     }

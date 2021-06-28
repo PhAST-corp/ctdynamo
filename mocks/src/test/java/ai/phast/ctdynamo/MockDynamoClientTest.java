@@ -376,4 +376,31 @@ public class MockDynamoClientTest {
         Assertions.assertEquals(List.of(new WithIndex("y", "a", "yes", null), new WithIndex("y", "c", "yes", null)),
             resultWithYes);
     }
+
+    @Test
+    public void testDeleteExtended_shouldDelete_whenConditionPasses() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(NoIndexDynamoTable.class,
+            new NoIndex("a", 10, true));
+
+        // Act
+        table.deleteItemExtended("a", 10, ConditionExpression.requirePresent("bVal"), false);
+
+        // Verify
+        DynamoMockUtil.verifyContainsExactly(table);
+    }
+
+    @Test
+    public void testDeleteExtended_shouldThrowAndNotDelete_whenConditionFails() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(NoIndexDynamoTable.class,
+            new NoIndex("a", 10, true));
+        var expr = new ConditionExpression("NOT #bVal", null, Map.of("#bVal", "bVal"));
+
+        // Act & Verify
+        Assertions.assertThrows(ConditionalCheckFailedException.class, () -> table.deleteItemExtended("a", 10, expr, false));
+
+        // Verify
+        DynamoMockUtil.verifyContainsExactly(table, new NoIndex("a", 10, true));
+    }
 }

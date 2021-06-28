@@ -671,7 +671,7 @@ public class DynamoTableTest {
         var table = new MockTable(client, null, "mock");
 
         // Act
-        var result = table.deleteItemExtended(new MockItem("p", "s", 100), true);
+        var result = table.deleteItemExtended(new MockItem("p", "s", 100), null, true);
 
         // Verify
         Assertions.assertEquals(new MockItem("p", "s", 15), result.getItem());

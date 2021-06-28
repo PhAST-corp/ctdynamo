@@ -224,6 +224,16 @@ class MockDynamoClient implements DynamoDbClient {
 
     @Override
     public DeleteItemResponse deleteItem(DeleteItemRequest deleteItemRequest) {
+        if (deleteItemRequest.conditionExpression() != null) {
+            var expr = new Expression(deleteItemRequest.conditionExpression(),
+                deleteItemRequest.expressionAttributeValues(),
+                deleteItemRequest.expressionAttributeNames());
+            var prevValue = Optional.ofNullable(store.getItem(deleteItemRequest.key()))
+                                .orElse(Collections.emptyMap());
+            if (!ExpressionEvaluator.evalBool(expr, prevValue)) {
+                throw ConditionalCheckFailedException.builder().build();
+            }
+        }
         var removed = remove(deleteItemRequest.key());
         return DeleteItemResponse.builder()
             .attributes(deleteItemRequest.returnValues() == ReturnValue.NONE ? null : removed)

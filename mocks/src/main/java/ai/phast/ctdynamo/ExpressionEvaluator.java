@@ -8,7 +8,6 @@ import org.antlr.v4.runtime.Recognizer;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Evaluates a dynamo expression
