@@ -151,9 +151,9 @@ public class DynamoTableTest {
         }
         var client = new MockClient(
             List.of(
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).build())).build(),
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).build())).build(),
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(50, 55)).build())).build()),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).consistentRead(false).build())).build(),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).consistentRead(false).build())).build(),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(50, 55)).consistentRead(false).build())).build()),
             List.of(
                 BatchGetItemResponse.builder().responses(Map.of("mock", respItems.subList(0, 25))).build(),
                 BatchGetItemResponse.builder().responses(Map.of("mock", respItems.subList(25, 50))).build(),
@@ -182,9 +182,9 @@ public class DynamoTableTest {
         }
         var client = new MockClient(
             List.of(
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).build())).build(),
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).build())).build(),
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(50, 55)).build())).build()),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).consistentRead(false).build())).build(),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).consistentRead(false).build())).build(),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(50, 55)).consistentRead(false).build())).build()),
             List.of(
                 BatchGetItemResponse.builder().responses(Map.of("mock", respItems.subList(0, 25))).build(),
                 BatchGetItemResponse.builder().responses(Map.of("mock", respItems.subList(25, 50))).build(),
@@ -215,10 +215,10 @@ public class DynamoTableTest {
             List.of(
                 BatchGetItemRequest.builder()
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-                    .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).build())).build(),
+                    .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).consistentRead(false).build())).build(),
                 BatchGetItemRequest.builder()
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-                    .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).build())).build()),
+                    .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).consistentRead(false).build())).build()),
             List.of(
                 BatchGetItemResponse.builder()
                     .consumedCapacity(ConsumedCapacity.builder()
@@ -241,7 +241,7 @@ public class DynamoTableTest {
         var table = new MockTable(client, null, "mock");
 
         // Act
-        var result = table.getBatchByItemExtended(keys);
+        var result = table.getBatchByItemExtended(keys, false);
 
         // Verify
         Assertions.assertEquals(expectedResult, result.getItems());
@@ -264,9 +264,9 @@ public class DynamoTableTest {
         }
         var client = new MockClient(
             List.of(
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).build())).build(),
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).build())).build(),
-                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(50, 55)).build())).build()),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).consistentRead(false).build())).build(),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).consistentRead(false).build())).build(),
+                BatchGetItemRequest.builder().requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(50, 55)).consistentRead(false).build())).build()),
             List.of(
                 BatchGetItemResponse.builder().responses(Map.of("mock", respItems.subList(0, 25))).build(),
                 BatchGetItemResponse.builder().responses(Map.of("mock", respItems.subList(25, 50))).build(),
@@ -297,10 +297,12 @@ public class DynamoTableTest {
             List.of(
                 BatchGetItemRequest.builder()
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-                    .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).build())).build(),
+                    .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(0, 25)).consistentRead(false)
+                            .build())).build(),
                 BatchGetItemRequest.builder()
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-                    .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).build())).build()),
+                    .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).consistentRead(false)
+                            .build())).build()),
             List.of(
                 BatchGetItemResponse.builder()
                     .consumedCapacity(ConsumedCapacity.builder()
@@ -323,7 +325,7 @@ public class DynamoTableTest {
         var table = new MockTable(client, null, "mock");
 
         // Act
-        var result = table.getBatchByItemExtendedAsync(keys).join();
+        var result = table.getBatchByItemExtendedAsync(keys, false).join();
 
         // Verify
         Assertions.assertEquals(expectedResult, result.getItems());

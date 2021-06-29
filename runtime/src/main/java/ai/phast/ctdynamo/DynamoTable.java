@@ -229,7 +229,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return The result of the read
      */
     public List<T> getBatchByItem(Collection<T> items) {
-        return getBatch(buildGetBatchesFromItems(items));
+        return getBatch(buildGetBatchesFromItems(items, false));
     }
 
     /**
@@ -238,7 +238,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return The result of the read
      */
     public List<T> getBatchByKey(Collection<Key<PartitionT, SortT>> keys) {
-        return getBatch(buildGetBatchesFromKeys(keys));
+        return getBatch(buildGetBatchesFromKeys(keys, false));
     }
 
     /**
@@ -263,19 +263,21 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     /**
      * Get a batch of items with capacity data and the non-matching keys
      * @param items The items whose keys will be used to get the batch
+     * @param consistentRead Is this request a consistent read
      * @return The result of the read and the capacity data
      */
-    public ExtendedBatchResult<T, Key<PartitionT, SortT>> getBatchByItemExtended(Collection<T> items) {
-        return getBatchExtended(buildGetBatchesFromItems(items));
+    public ExtendedBatchResult<T, Key<PartitionT, SortT>> getBatchByItemExtended(Collection<T> items, boolean consistentRead) {
+        return getBatchExtended(buildGetBatchesFromItems(items, consistentRead));
     }
 
     /**
      * Get a batch of items with capacity data and the non-matching keys
      * @param keys The keys used to get the batch
+     * @param consistentRead Is this request a consistent read
      * @return The result of the read and the capacity data
      */
-    public ExtendedBatchResult<T, Key<PartitionT, SortT>> getBatchByKeyExtended(Collection<Key<PartitionT, SortT>> keys) {
-        return getBatchExtended(buildGetBatchesFromKeys(keys));
+    public ExtendedBatchResult<T, Key<PartitionT, SortT>> getBatchByKeyExtended(Collection<Key<PartitionT, SortT>> keys, boolean consistentRead) {
+        return getBatchExtended(buildGetBatchesFromKeys(keys, consistentRead));
     }
 
     /**
@@ -303,7 +305,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return A future containing the result of the read
      */
     public CompletableFuture<List<T>> getBatchByItemAsync(Collection<T> items) {
-        return getBatchAsync(buildGetBatchesFromItems(items));
+        return getBatchAsync(buildGetBatchesFromItems(items, false));
     }
 
     /**
@@ -312,7 +314,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return A future containing the results of all batches combined together
      */
     public CompletableFuture<List<T>> getBatchByKeyAsync(Collection<Key<PartitionT, SortT>> keys) {
-        return getBatchAsync(buildGetBatchesFromKeys(keys));
+        return getBatchAsync(buildGetBatchesFromKeys(keys, false));
     }
 
     /**
@@ -342,19 +344,21 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     /**
      * Asynchronously get a batch of items with capacity data and the non-matching keys
      * @param items The items whose keys will be used to get the batch
+     * @param consistentRead Is this request a consistent read
      * @return A future with the result of the read and the capacity data
      */
-    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> getBatchByItemExtendedAsync(Collection<T> items) {
-        return getBatchExtendedAsync(buildGetBatchesFromItems(items));
+    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> getBatchByItemExtendedAsync(Collection<T> items, boolean consistentRead) {
+        return getBatchExtendedAsync(buildGetBatchesFromItems(items, consistentRead));
     }
 
     /**
      * Asynchronously get a batch of items with capacity data and the non-matching keys
      * @param keys The keys used to get the batch
+     * @param consistentRead Is this request a consistent read
      * @return A future with the result of the read and the capacity data
      */
-    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> getBatchByKeyExtendedAsync(Collection<Key<PartitionT, SortT>> keys) {
-        return getBatchExtendedAsync(buildGetBatchesFromKeys(keys));
+    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> getBatchByKeyExtendedAsync(Collection<Key<PartitionT, SortT>> keys, boolean consistentRead) {
+        return getBatchExtendedAsync(buildGetBatchesFromKeys(keys, consistentRead));
     }
 
     /**
@@ -407,9 +411,10 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     /**
      * Build a list of maps from table name to a list of keys. Each map will have at most MAX_ITEMS_PER_BATCH items.
      * @param collection A collection of items to use as sort keys
+     * @param consistentRead Is this request a consistent read
      * @return A list of batches to submit for processing
      */
-    private List<Map<String, KeysAndAttributes>> buildGetBatchesFromItems(Collection<T> collection) {
+    private List<Map<String, KeysAndAttributes>> buildGetBatchesFromItems(Collection<T> collection, boolean consistentRead) {
         var itemList = getListFromCollection(collection);
         int numItems = itemList.size();
         var result = new ArrayList<Map<String, KeysAndAttributes>>((numItems + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH);
@@ -419,6 +424,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                     .keys(itemList.subList(offset, Math.min(numItems, offset + MAX_ITEMS_PER_BATCH)).stream()
                               .map(item -> keysToMap(getPartitionValue(item), getSortValue(item)))
                               .collect(Collectors.toList()))
+                    .consistentRead(consistentRead)
                     .build()));
         }
         return result;
@@ -427,9 +433,10 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     /**
      * Build a list of maps from table name to a list of keys. Each map will have at most MAX_ITEMS_PER_BATCH items.
      * @param keys A list of keys
+     * @param consistentRead Is this request a consistent read
      * @return A list of batches to submit for processing
      */
-    private List<Map<String, KeysAndAttributes>> buildGetBatchesFromKeys(Collection<Key<PartitionT, SortT>> keys) {
+    private List<Map<String, KeysAndAttributes>> buildGetBatchesFromKeys(Collection<Key<PartitionT, SortT>> keys, boolean consistentRead) {
         var keyList = getListFromCollection(keys);
         int numItems = keys.size();
         var result = new ArrayList<Map<String, KeysAndAttributes>>((numItems + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH);
@@ -439,6 +446,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                     .keys(keyList.subList(offset, Math.min(numItems, offset + MAX_ITEMS_PER_BATCH)).stream()
                               .map(key -> keysToMap(key.getPartition(), key.getSort()))
                               .collect(Collectors.toList()))
+                    .consistentRead(consistentRead)
                     .build()));
         }
         return result;

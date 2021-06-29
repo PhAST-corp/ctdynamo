@@ -238,7 +238,7 @@ public class MockDynamoClientTest {
         var result = table.getBatchByKeyExtended(IntStream.range(0, 123)
                                                      .filter(i -> (i % 3) == 0)
                                                      .mapToObj(i -> new Key<>("p" + (i % 11), "s" + (i % 13)))
-                                                     .collect(Collectors.toList()));
+                                                     .collect(Collectors.toList()), false);
 
         // Verify
         Assertions.assertEquals(IntStream.range(0, 123)
