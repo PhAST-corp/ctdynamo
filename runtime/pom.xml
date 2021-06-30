@@ -7,7 +7,7 @@
     <parent>
         <artifactId>ctdynamo-parent</artifactId>
         <groupId>ai.phast</groupId>
-        <version>0.1.2</version>
+        <version>0.1.3</version>
     </parent>
     <artifactId>ctdynamo-runtime</artifactId>
     <packaging>jar</packaging>

@@ -17,6 +17,8 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import java.util.ArrayList;
@@ -102,7 +104,7 @@ class MockDynamoClient implements DynamoDbClient {
     public synchronized PutItemResponse putItem(PutItemRequest putItemRequest) {
         var exprString = putItemRequest.conditionExpression();
         if (exprString != null) {
-            var expr = new Expression(exprString, putItemRequest.expressionAttributeValues(), putItemRequest.expressionAttributeNames());
+            var expr = new ConditionExpression(exprString, putItemRequest.expressionAttributeValues(), putItemRequest.expressionAttributeNames());
             var prevValue = Optional.ofNullable(store.getItem(putItemRequest.item()))
                                 .orElse(Collections.emptyMap());
             if (!ExpressionEvaluator.evalBool(expr, prevValue)) {
@@ -148,7 +150,7 @@ class MockDynamoClient implements DynamoDbClient {
             items = items.subList(0, request.limit());
         }
         if (request.filterExpression() != null) {
-            var expr = new Expression(request.filterExpression(), request.expressionAttributeValues(), request.expressionAttributeNames());
+            var expr = new ConditionExpression(request.filterExpression(), request.expressionAttributeValues(), request.expressionAttributeNames());
             items.removeIf(item -> !ExpressionEvaluator.evalBool(expr, item));
         }
         return QueryResponse.builder()
@@ -225,7 +227,7 @@ class MockDynamoClient implements DynamoDbClient {
     @Override
     public DeleteItemResponse deleteItem(DeleteItemRequest deleteItemRequest) {
         if (deleteItemRequest.conditionExpression() != null) {
-            var expr = new Expression(deleteItemRequest.conditionExpression(),
+            var expr = new ConditionExpression(deleteItemRequest.conditionExpression(),
                 deleteItemRequest.expressionAttributeValues(),
                 deleteItemRequest.expressionAttributeNames());
             var prevValue = Optional.ofNullable(store.getItem(deleteItemRequest.key()))
@@ -300,6 +302,27 @@ class MockDynamoClient implements DynamoDbClient {
                    .responses(Map.of(tableInstance.getTableName(), results))
                    .unprocessedKeys(Map.of(tableInstance.getTableName(), KeysAndAttributes.builder().keys(unprocessedKeys).build()))
                    .build();
+    }
+
+    @Override
+    public UpdateItemResponse updateItem(UpdateItemRequest request) {
+        var prevItem = Optional.ofNullable(store.getItem(request.key())).orElse(Collections.emptyMap());
+        if (request.conditionExpression() != null) {
+            if (!ExpressionEvaluator.evalBool(new ConditionExpression(request.conditionExpression(),
+                request.expressionAttributeValues(), request.expressionAttributeNames()), prevItem)) {
+                throw ConditionalCheckFailedException.builder().build();
+            }
+        }
+        var curItem = ExpressionEvaluator.update(request.updateExpression(), prevItem,
+            request.expressionAttributeValues(), request.expressionAttributeNames());
+        curItem.putAll(request.key());  // The key is always kept unchanged, added if we are creating the item
+        store.add(curItem);
+        var response = UpdateItemResponse.builder();
+        var returnItem = (request.returnValues() == ReturnValue.ALL_OLD ? prevItem : curItem);
+        if (!returnItem.isEmpty()) {
+            response.attributes(returnItem);
+        }
+        return response.build();
     }
 
     /**

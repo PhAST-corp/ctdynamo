@@ -10,18 +10,52 @@ import java.util.Map;
 /**
  * An expression that returns a boolean (true/false) value. Also adds helpfer functions to build condition expressions
  */
-public class ConditionExpression extends Expression {
+public class ConditionExpression {
+
+    /** Text of the expression */
+    private final String expression;
+
+    /** Map of values referenced by the expression */
+    private final Map<String, AttributeValue> values;
+
+    /** Map of attribute names referenced by the expression */
+    private final Map<String, String> attributeNames;
 
     /**
-     * Build an arbitrary condition expression
-     * @param expression The expression string
-     * @param values A map from name to value. All values inserted by ctdynamo will have names beginning with "ctdynamo_", so
-     *               avoid using names that match
-     * @param attributeNames A map from key to attribute name. All attribute names inserted by ctdynamo will have a key equal
-     *                       to the attribute name, it is best to stay with that
+     * Build an expression
+     * @param expression The text of the expression
+     * @param values The optional values of the expression
+     * @param attributeNames The optional attribute names referenced by the expression
      */
-    public ConditionExpression(String expression, Map<String, AttributeValue> values, Map<String, String> attributeNames) {
-        super(expression, values, attributeNames);
+    protected ConditionExpression(String expression, Map<String, AttributeValue> values, Map<String, String> attributeNames) {
+        this.expression = expression;
+        this.values = values;
+        this.attributeNames = attributeNames;
+    }
+
+    /**
+     * Get the text of the expression
+     * @return The text of the expression
+     */
+    public String getExpression() {
+        return expression;
+    }
+
+    /**
+     * Get the values referenced by the expression. All values added automatically by ctDynamo will begin with "ctdynamo_"
+     * @return The values references by the expression
+     */
+    public Map<String, AttributeValue> getValues() {
+        return values;
+    }
+
+    /**
+     * Get the attribute names references by the expression
+     * @return The attribute names reerenced by the expression. All names used by ctDynamo will be the attribute name with
+     *         a '#' character in front
+     */
+    public Map<String, String> getAttributeNames() {
+        return attributeNames;
     }
 
     /**
@@ -134,5 +168,10 @@ public class ConditionExpression extends Expression {
         return new ConditionExpression("attribute_not_exists(#" + attributeName + ")",
             null,
             Map.of("#" + attributeName, attributeName));
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "[" + expression + ", " + values + ", " + attributeNames + "]";
     }
 }

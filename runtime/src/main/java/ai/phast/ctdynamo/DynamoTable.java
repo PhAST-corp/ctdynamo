@@ -18,11 +18,13 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +41,17 @@ import java.util.stream.Collectors;
  * @param <SortT> The type of the sort key for this table
  */
 public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, PartitionT, SortT> {
+
+    /**
+     * Providing this string as an expression in updateItem indicates that the attribute should not be updated.
+     * This lets you provide an item to an update call, but not update all the attribute in the item.
+     */
+    public static final String UPDATE_IGNORE_ATTRIBUTE = "-";
+
+    /**
+     * Providing this string as an expression in updateItem indicates that the attribute should be removed.
+     */
+    public static final String UPDATE_REMOVE_ATTRIBUTE = "";
 
     /**
      * Dynamo will fail if we try to do more than this many operations in one batch
@@ -71,16 +84,6 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
 
     /**
      * Read an item from the table
-     * @param key A key holding the partition and sort keys
-     * @return The item stored in the table with the specified partition and sort keys, or null if no such item
-     *         exists
-     */
-    public final T getItem(Key<PartitionT, SortT> key) {
-        return getItem(key.getPartition(), key.getSort());
-    }
-
-    /**
-     * Read an item from the table
      * @param partitionValue The partition value to use
      * @param sortValue The sort value to use, or null if this table has no sort key
      * @return The item stored in the table that has the matching partition and sort keys, or null if no such item exists
@@ -101,16 +104,6 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      */
     public final ExtendedItemResult<T> getItemExtended(T value, boolean useConsistentRead) {
         return getItemExtended(getPartitionValue(value), getSortValue(value), useConsistentRead);
-    }
-
-    /**
-     * Read an item from the table. Capacity data will be returned, and consistent read may be used
-     * @param key A key holding the partition and sort keys
-     * @param useConsistentRead If true, then consistent reads will be used
-     * @return A result that contains the matching item (if any) and capacity data
-     */
-    public final ExtendedItemResult<T> getItemExtended(Key<PartitionT, SortT> key, boolean useConsistentRead) {
-        return getItemExtended(key.getPartition(), key.getSort(), useConsistentRead);
     }
 
     /**
@@ -152,16 +145,6 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
 
     /**
      * Read an item from the table asynchronously
-     * @param key A key holding the partition and sort keys
-     * @return A future that contains the item stored in the table with partition and sort keys that match value, or null if no such item
-     *         exists
-     */
-    public final CompletableFuture<T> getItemAsync(Key<PartitionT, SortT> key) {
-        return getItemAsync(key.getPartition(), key.getSort());
-    }
-
-    /**
-     * Read an item from the table asynchronously
      * @param partitionValue The partition value to use
      * @param sortValue The sort value to use, or null if this table has no sort key
      * @return A future that contains the item stored in the table with partition and sort keys that match value, or null if no such item
@@ -183,16 +166,6 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      */
     public final CompletableFuture<ExtendedItemResult<T>> getItemExtendedAsync(T value, boolean useConsistentRead) {
         return getItemExtendedAsync(getPartitionValue(value), getSortValue(value), useConsistentRead);
-    }
-
-    /**
-     * Read an item from the table asynchronously. Capacity data will be returned, and consistent read may be used
-     * @param key A key holding the partition and sort keys
-     * @param useConsistentRead If true, then consistent reads will be used
-     * @return A future that contains the matching item (if any) and capacity data
-     */
-    public final CompletableFuture<ExtendedItemResult<T>> getItemExtendedAsync(Key<PartitionT, SortT> key, boolean useConsistentRead) {
-        return getItemExtendedAsync(key.getPartition(), key.getSort(), useConsistentRead);
     }
 
     /**
@@ -668,14 +641,6 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
 
     /**
      * Delete an item from the database
-     * @param key The partition and sort keys of the item to delete
-     */
-    public final void deleteItem(Key<PartitionT, SortT> key) {
-        deleteItem(key.getPartition(), key.getSort());
-    }
-
-    /**
-     * Delete an item from the database
      * @param partitionKey The partition key of the item to be deleted
      * @param sortKey The sort key of the item to be deleted
      */
@@ -726,17 +691,6 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      */
     public final ExtendedItemResult<T> deleteItemExtended(T value, ConditionExpression conditionExpression, boolean returnPrevious) {
         return deleteItemExtended(getPartitionValue(value), getSortValue(value), conditionExpression, returnPrevious);
-    }
-
-    /**
-     * Delete an item, returning the item deleted and the capacity consumed
-     * @param value The partition and sort keys of the item to delete
-     * @param returnPrevious If true, then the deleted item is returned
-     * @param conditionExpression Optional expression that must evaluate to true for the delete to succeed
-     * @return An extended item result with consumtion and the deleted item (if any) filled in
-     */
-    public final ExtendedItemResult<T> deleteItemExtended(Key<PartitionT, SortT> value, ConditionExpression conditionExpression, boolean returnPrevious) {
-        return deleteItemExtended(value.getPartition(), value.getSort(), conditionExpression, returnPrevious);
     }
 
     /**
@@ -803,15 +757,6 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      */
     public final CompletableFuture<Void> deleteItemAsync(T value) {
         return deleteItemAsync(getPartitionValue(value), getSortValue(value));
-    }
-
-    /**
-     * Delete an item from the database asynchronously
-     * @param key The partition and sort keys of the item to delete
-     * @return A future that indicates when the operation is complete
-     */
-    public final CompletableFuture<Void> deleteItemAsync(Key<PartitionT, SortT> key) {
-        return deleteItemAsync(key.getPartition(), key.getSort());
     }
 
     /**
@@ -968,6 +913,246 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      */
     private CompletableFuture<DeleteItemResponse> rawDeleteItemAsync(DeleteItemRequest request) {
         return getAsyncClient() == null ? CompletableFuture.supplyAsync(() -> getClient().deleteItem(request)) : getAsyncClient().deleteItem(request);
+    }
+
+    /**
+     * Update an item in the table. This function (where no item is provided) by default leaves attributes unchanged, only
+     * the attributes included in the expressions map will be changed.
+     * @param partitionValue The partition value of the item to update
+     * @param sortValue The sort value of the item to update. Pass in null if this table has no sort key
+     * @param condition Optional condition expression. If this expression does not evaluate to true, the update will fail with
+     *                  a ConditionalCheckException
+     * @param expressions An optional map from attribute name to expression. The attribute names should be the actual names, without a "#" prefix.
+     *                    Two special cases for the expression exist: {@link #UPDATE_REMOVE_ATTRIBUTE} as an expression
+     *                    indicates that the attribute should be removed, and {@link #UPDATE_IGNORE_ATTRIBUTE} indicates that the attribute
+     *                    should not be changed (the latter is not so useful here, where the default is to leave attributes
+     *                    unchanged).
+     * @param values values used by the expressions. This  will be merged with the values from the condition expression, so you can override values
+     *               from item by supplying different values here
+     * @param returnPrevious If true, the item in the database before the update is returned. If false, the item after the update is returned.
+     * @param attributeNames A map from attribute reference to attribute name. This will also be erged with the condition expression attribute names.
+     *                       It will also be combined with a map that simply puts a "#" character in front of each attribute name.
+     * @return An updateItemResult with the previous or current item and the consumed capacity
+     */
+    public UpdateItemResult<T> updateItem(PartitionT partitionValue, SortT sortValue, ConditionExpression condition,
+                                          Map<String, String> expressions, Map<String, AttributeValue> values, Map<String, String> attributeNames,
+                                          boolean returnPrevious) {
+        if (values == null) {
+            values = new HashMap<>();
+        } else if (condition != null && condition.getValues() != null) {
+            // We will be modifying this map, so we need to make a copy
+            values = new HashMap<>(values);
+        }
+        attributeNames = (attributeNames == null ? new HashMap<>() : new HashMap<>(attributeNames));
+        var request = buildUpdateItemRequest(partitionValue, sortValue, condition, expressions, values, attributeNames, returnPrevious);
+        var response = (getClient() == null ? getAsyncClient().updateItem(request).join()
+                                            : getClient().updateItem(request));
+        return new UpdateItemResult<>(response.hasAttributes() ? decode(response.attributes()) : null, new CapacityUsed(response.consumedCapacity()));
+    }
+
+    /**
+     * Update an item in the table. This function (where an item is provided) will first create updates that copy all attributes
+     * from the provided item into the table, then it overrides any of these with updates from the expressions map.
+     * @param item The values to replace. Any non-null entries in this value will replace the values in the table by default; you can override
+     *             this behavior per-attribute with the expressions parameter
+     * @param condition Optional condition expression. If this expression does not evaluate to true, the update will fail with
+     *                  a ConditionalCheckException
+     * @param expressions An optional map from attribute name to expression. The attribute names should be the actual names, without a "#" prefix.
+     *                    This will override any values in item, setting the attribute to the result of this expression. Two special cases
+     *                    for the expression exist: {@link #UPDATE_REMOVE_ATTRIBUTE} as an expression
+     *                    indicates that the attribute should be removed, and {@link #UPDATE_IGNORE_ATTRIBUTE} indicates that the attribute
+     *                    should not be changed.
+     * @param values values used by the expressions. This  will be merged with the values from the condition expression, so you can override values
+     *               from item by supplying different values here
+     * @param returnPrevious If true, the item in the database before the update is returned. If false, the item after the update is returned.
+     * @param attributeNames A map from attribute reference to attribute name. This will also be erged with the condition expression attribute names.
+     *                       It will also be combined with a map that simply puts a "#" character in front of each attribute name.
+     * @return An updateItemResult with the previous or current item and the consumed capacity
+     */
+    public UpdateItemResult<T> updateItem(T item, ConditionExpression condition, Map<String, String> expressions, Map<String, AttributeValue> values, Map<String, String> attributeNames,
+                                          boolean returnPrevious) {
+        var request = buildUpdateItemRequest(item, condition, expressions, values, attributeNames, returnPrevious);
+        var response = (getClient() == null ? getAsyncClient().updateItem(request).join() : getClient().updateItem(request));
+        return new UpdateItemResult<>(response.hasAttributes() ? decode(response.attributes()) : null, new CapacityUsed(response.consumedCapacity()));
+    }
+
+    /**
+     * Update an item in the table. This function (where no item is provided) by default leaves attributes unchanged, only
+     * the attributes included in the expressions map will be changed.
+     * @param partitionValue The partition value of the item to update
+     * @param sortValue The sort value of the item to update. Pass in null if this table has no sort key
+     * @param condition Optional condition expression. If this expression does not evaluate to true, the update will fail with
+     *                  a ConditionalCheckException
+     * @param expressions An optional map from attribute name to expression. The attribute names should be the actual names, without a "#" prefix.
+     *                    Two special cases for the expression exist: An empty string as an expression
+     *                    indicates that the attribute should be removed, and {@link #UPDATE_IGNORE_ATTRIBUTE} indicates that the attribute
+     *                    should not be changed (the latter is not so useful here, where the default is to leave attributes
+     *                    unchanged).
+     * @param values values used by the expressions. This  will be merged with the values from the condition expression, so you can override values
+     *               from item by supplying different values here
+     * @param returnPrevious If true, the item in the database before the update is returned. If false, the item after the update is returned.
+     * @param attributeNames A map from attribute reference to attribute name. This will also be erged with the condition expression attribute names.
+     *                       It will also be combined with a map that simply puts a "#" character in front of each attribute name.
+     * @return A future updateItemResult with the previous or current item and the consumed capacity
+     */
+    public CompletableFuture<UpdateItemResult<T>> updateItemAsync(PartitionT partitionValue, SortT sortValue, ConditionExpression condition, Map<String, String> expressions, Map<String, AttributeValue> values,
+                                                                  Map<String, String> attributeNames, boolean returnPrevious) {
+        if (values == null) {
+            values = new HashMap<>();
+        } else if (condition != null && condition.getValues() != null) {
+            // We will be modifying this map, so we need to make a copy
+            values = new HashMap<>(values);
+        }
+        attributeNames = (attributeNames == null ? new HashMap<>() : new HashMap<>(attributeNames));
+        var request = buildUpdateItemRequest(partitionValue, sortValue, condition, expressions, values, attributeNames, returnPrevious);
+        var response = (getAsyncClient() == null
+                        ? CompletableFuture.supplyAsync(() -> getClient().updateItem(request))
+                        : getAsyncClient().updateItem(request));
+        return response.thenApply(resp -> new UpdateItemResult<>(decode(resp.attributes()), new CapacityUsed(resp.consumedCapacity())));
+    }
+
+    /**
+     * Update an item in the table. This function (where an item is provided) will first create updates that copy all attributes
+     * from the provided item into the table, then it overrides any of these with updates from the expressions map.
+     * @param item The values to replace. Any non-null entries in this value will replace the values in the table by default; you can override
+     *             this behavior per-attribute with the expressions parameter
+     * @param condition Optional condition expression. If this expression does not evaluate to true, the update will fail with
+     *                  a ConditionalCheckException
+     * @param expressions An optional map from attribute name to expression. The attribute names should be the actual names, without a "#" prefix.
+     *                    This will override any values in item, setting the attribute to the result of this expression. Two special cases
+     *                    for the expression exist: An empty string as an expression
+     *                    indicates that the attribute should be removed, and {@link #UPDATE_IGNORE_ATTRIBUTE} indicates that the attribute
+     *                    should not be changed.
+     * @param values values used by the expressions. This  will be merged with the values from the condition expression, so you can override values
+     *               from item by supplying different values here
+     * @param returnPrevious If true, the item in the database before the update is returned. If false, the item after the update is returned.
+     * @param attributeNames A map from attribute reference to attribute name. This will also be erged with the condition expression attribute names.
+     *                       It will also be combined with a map that simply puts a "#" character in front of each attribute name.
+     * @return A future updateItemResult with the previous or current item and the consumed capacity
+     */
+    public CompletableFuture<UpdateItemResult<T>> updateItemAsync(T item, ConditionExpression condition, Map<String, String> expressions, Map<String, AttributeValue> values,
+                                                                  Map<String, String> attributeNames, boolean returnPrevious) {
+        var request = buildUpdateItemRequest(item, condition, expressions, values, attributeNames, returnPrevious);
+        var response = (getAsyncClient() == null
+                        ? CompletableFuture.supplyAsync(() -> getClient().updateItem(request))
+                        : getAsyncClient().updateItem(request));
+        return response.thenApply(resp -> new UpdateItemResult<>(decode(resp.attributes()), new CapacityUsed(resp.consumedCapacity())));
+    }
+
+    /**
+     * Build an updateItem request. This function (where an item is provided) will first create updates that copy all attributes
+     * from the provided item into the table, then it overrides any of these with updates from the expressions map.
+     * @param item The values to replace. Any non-null entries in this value will replace the values in the table by default; you can override
+     *             this behavior per-attribute with the expressions parameter
+     * @param condition Optional condition expression. If this expression does not evaluate to true, the update will fail with
+     *                  a ConditionalCheckException
+     * @param expressions An optional map from attribute name to expression. The attribute names should be the actual names, without a "#" prefix.
+     *                    This will override any values in item, setting the attribute to the result of this expression. Two special cases
+     *                    for the expression exist: An empty string as an expression
+     *                    indicates that the attribute should be removed, and {@link #UPDATE_IGNORE_ATTRIBUTE} indicates that the attribute
+     *                    should not be changed.
+     * @param values values used by the expressions. This  will be merged with the values from the condition expression, so you can override values
+     *               from item by supplying different values here
+     * @param returnPrevious If true, the item in the database before the update is returned. If false, the item after the update is returned.
+     * @param attributeNames A map from attribute reference to attribute name. This will also be erged with the condition expression attribute names.
+     *                       It will also be combined with a map that simply puts a "#" character in front of each attribute name.
+     * @return An updateItemRequest to perform the update requested
+     */
+    private UpdateItemRequest buildUpdateItemRequest(T item, ConditionExpression condition, Map<String, String> expressions, Map<String, AttributeValue> values,
+                                                     Map<String, String> attributeNames, boolean returnPrevious) {
+        var expressionsCopy = new HashMap<String, String>();
+        var valuesCopy = new HashMap<String, AttributeValue>();
+        var namesCopy = new HashMap<String, String>();
+        for (var entry : encode(item).entrySet()) {
+            var attributeName = entry.getKey();
+            if (!attributeName.equals(getPartitionKeyAttribute()) && !attributeName.equals(getSortKeyAttribute())) {
+                var attributeRef = "#" + attributeName;
+                var valueRef = ":" + attributeName;
+                expressionsCopy.put(attributeRef, valueRef);
+                valuesCopy.put(valueRef, entry.getValue());
+                namesCopy.put(attributeRef, attributeName);
+            }
+        }
+        if (expressions != null) {
+            for (var entry : expressions.entrySet()) {
+                var attributeName = entry.getKey();
+                var attributeRef = "#" + attributeName;
+                expressionsCopy.put(attributeRef, entry.getValue());
+                namesCopy.put(attributeRef, attributeName);
+            }
+        }
+        if (values != null) {
+            valuesCopy.putAll(values);
+        }
+        if (attributeNames != null) {
+            namesCopy.putAll(attributeNames);
+        }
+        return buildUpdateItemRequest(getPartitionValue(item), getSortValue(item), condition, expressionsCopy, valuesCopy, namesCopy, returnPrevious);
+    }
+
+    /**
+     * Build a request to update an item.
+     * @param partitionValue The partition value of the item to update
+     * @param sortValue The sort value of the item to update. Pass in null if this table has no sort key
+     * @param condition Optional condition expression. If this expression does not evaluate to true, the update will fail with
+     *                  a ConditionalCheckException
+     * @param expressions An optional map from attribute name to expression. The attribute names should be the actual names, without a "#" prefix.
+     *                    This will override any values in item, setting the attribute to the result of this expression. Two special cases
+     *                    for the expression exist: An empty string as an expression
+     *                    indicates that the attribute should be removed, and {@link #UPDATE_IGNORE_ATTRIBUTE} indicates that the attribute
+     *                    should not be changed.
+     * @param values values used by the expressions. This  will be merged with the values from the condition expression, so you can override values
+     *               from item by supplying different values here
+     * @param returnPrevious If true, the item in the database before the update is returned. If false, the item after the update is returned.
+     * @param attributeNames A map from attribute reference to attribute name. This will also be erged with the condition expression attribute names.
+     *                       It will also be combined with a map that simply puts a "#" character in front of each attribute name.
+     * @return An updateItemRequest to perform the update requested
+     */
+    private UpdateItemRequest buildUpdateItemRequest(PartitionT partitionValue, SortT sortValue, ConditionExpression condition, Map<String, String> expressions,
+                                                     Map<String, AttributeValue> values, Map<String, String> attributeNames, boolean returnPrevious) {
+        var expression = new StringBuilder();
+        List<String> removals = null;
+        for (var entry : expressions.entrySet()) {
+            var key = entry.getKey();
+            var value = entry.getValue();
+            if (value.equals(UPDATE_REMOVE_ATTRIBUTE)) {
+                // We need to remove this value
+                if (removals == null) {
+                    removals = new ArrayList<>();
+                }
+                removals.add(key);
+            } else if (!value.equals(UPDATE_IGNORE_ATTRIBUTE)) {
+                expression.append(expression.length() == 0 ? "SET " : ", ")
+                    .append(key)
+                    .append(" = ")
+                    .append(value);
+            }
+        }
+        if (removals != null) {
+            var prefix = " REMOVE ";
+            for (var removal : removals) {
+                expression.append(prefix).append(removal);
+                prefix = ", ";
+            }
+        }
+        var requestBuilder = UpdateItemRequest.builder()
+                                 .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                                 .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.ALL_NEW)
+                                 .tableName(getTableName())
+                                 .key(keysToMap(partitionValue, sortValue));
+        if (condition != null) {
+            if (condition.getValues() != null) {
+                values.putAll(condition.getValues());
+            }
+            if (condition.getAttributeNames() != null) {
+                attributeNames.putAll(condition.getAttributeNames());
+            }
+            requestBuilder.conditionExpression(condition.getExpression());
+        }
+        requestBuilder.updateExpression(expression.toString())
+            .expressionAttributeNames(attributeNames)
+            .expressionAttributeValues(values);
+        return requestBuilder.build();
     }
 
     /**

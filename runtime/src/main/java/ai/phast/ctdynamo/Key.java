@@ -3,8 +3,7 @@ package ai.phast.ctdynamo;
 import java.util.Objects;
 
 /**
- * Class that represents a key of a Dynamo table. This is primarily useful in batch operation but may also be used
- * in singleton get or delete requests.
+ * Class that represents a key of a Dynamo table. This is primarily used in batch operations.
  * @param <PartitionT> The type of the partition key
  * @param <SortT> The type of the stort key, or Void if there is no sort key
  */

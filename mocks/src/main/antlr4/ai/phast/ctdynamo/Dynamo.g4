@@ -7,6 +7,24 @@ grammar Dynamo;
 
 expression returns [ AttributeValue value ] : body=andOr EOF { $value = $body.value; } ;
 
+update : update updatePart EOF
+  | updatePart EOF
+  ;
+
+updatePart: 'SET' setTerms
+  | 'REMOVE' removeTerms
+  ;
+
+setTerms: setTerms ',' setTerm
+  | setTerm
+  ;
+
+setTerm: lvalAtom '=' andOr;
+
+removeTerms: removeTerms ',' lvalAtom
+  | lvalAtom
+  ;
+
 andOr returns [ AttributeValue value ]
   : left=andOr 'AND' right=not { $value = ExpressionEvaluator.makeBool(ExpressionEvaluator.unpackBool($left.value) && ExpressionEvaluator.unpackBool($right.value)); }
   | left=andOr 'OR' right=not { $value = ExpressionEvaluator.makeBool(ExpressionEvaluator.unpackBool($left.value) || ExpressionEvaluator.unpackBool($right.value)); }
@@ -40,7 +58,8 @@ compare returns [ AttributeValue value ]
   | addSubVal=addSub { $value = $addSubVal.value; }
   ;
 
-addSub returns [ AttributeValue value ] : addSub '+' mulDiv { ExpressionEvaluator.unsupported("+"); }
+addSub returns [ AttributeValue value ]
+  : left=addSub '+' right=mulDiv { $value = ExpressionEvaluator.add($left.value, $right.value); }
   | addSub '-' mulDiv { ExpressionEvaluator.unsupported("-"); }
   | mulDivVal = mulDiv { $value = $mulDivVal.value; }
   ;
@@ -57,6 +76,7 @@ func returns [ AttributeValue value ]
   | 'contains' '(' dot ',' andOr ')' { ExpressionEvaluator.unsupported("contains"); }
   | 'begins_with' '(' andOr ',' andOr ')' { ExpressionEvaluator.unsupported("begins_with"); }
   | 'size' '(' andOr ')' { ExpressionEvaluator.unsupported("size"); }
+  | 'if_not_exists' '(' atomVal=atom ',' andOrVal=andOr ')' { $value = ($atomVal.value == null ? $andOrVal.value : $atomVal.value); }
   | dotVal=dot { $value = $dotVal.value; }
   ;
 
@@ -71,6 +91,11 @@ paren returns [ AttributeValue value ] : '(' parenVal=andOr ')' { $value = $pare
 atom returns [ AttributeValue value ] : ar=attributeRefAtom { $value = $ar.value; }
   | vr=valueRefAtom { $value = $vr.value; }
   | a=attributeAtom { $value = $a.value; } ;
+
+lvalAtom returns [ String value ]
+  : ATTRIBUTE
+  | ATTRIBUTE_REF
+  ;
 
 attributeRefAtom returns [ AttributeValue value ] : ATTRIBUTE_REF ;
 

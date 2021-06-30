@@ -7,7 +7,9 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Evaluates a dynamo expression
@@ -41,7 +43,7 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      * @param curItem The item in the database that we are evaluating
      * @return The value of the expression
      */
-    public static AttributeValue eval(Expression expression, Map<String, AttributeValue> curItem) {
+    public static AttributeValue eval(ConditionExpression expression, Map<String, AttributeValue> curItem) {
         var parser = new DynamoParser(new CommonTokenStream(new DynamoLexer(CharStreams.fromString(expression.getExpression()))));
         parser.addErrorListener(new ErrorListener());
         parser.addParseListener(new ExpressionEvaluator(curItem, expression.getAttributeNames(), expression.getValues()));
@@ -55,12 +57,30 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      * @return The boolean result of the expression
      * @throws RuntimeException If the expression does not evaluate as a boolean
      */
-    public static boolean evalBool(Expression expression, Map<String, AttributeValue> curItem) {
+    public static boolean evalBool(ConditionExpression expression, Map<String, AttributeValue> curItem) {
         var result = eval(expression, curItem);
         if (result.bool() == null) {
             throw new RuntimeException("Evaluation of " + expression + " is not a bool, got: " + result);
         }
         return result.bool();
+    }
+
+    /**
+     * Evaluate an update operation. The current item is copied and returned after modification.
+     * @param update The expression
+     * @param curItem The current item or an empty map if there is none
+     * @param values The values passed in
+     * @param names The name map
+     * @return The updated item
+     */
+    public static Map<String, AttributeValue> update(String update, Map<String, AttributeValue> curItem,
+                                                     Map<String, AttributeValue> values, Map<String, String> names) {
+        var result = new HashMap<>(curItem);
+        var parser = new DynamoParser(new CommonTokenStream(new DynamoLexer(CharStreams.fromString(update))));
+        parser.addErrorListener(new ErrorListener());
+        parser.addParseListener(new ExpressionEvaluator(result, names, values));
+        parser.update();
+        return result;
     }
 
     /**
@@ -102,6 +122,31 @@ public class ExpressionEvaluator extends DynamoBaseListener {
         ctx.value = curItem.get(ctx.getText());
     }
 
+    @Override
+    public void exitSetTerm(DynamoParser.SetTermContext ctx) {
+        curItem.put(ctx.lvalAtom().value, ctx.andOr().value);
+    }
+
+    /**
+     * Evaluate a removal. This should be just an attribute name or attribute reference.
+     * @param ctx Context
+     */
+    @Override
+    public void exitRemoveTerms(DynamoParser.RemoveTermsContext ctx) {
+        curItem.remove(ctx.lvalAtom().value);
+    }
+
+    @Override
+    public void exitLvalAtom(DynamoParser.LvalAtomContext ctx) {
+        var text = ctx.getText();
+        if (ctx.ATTRIBUTE() == null) {
+            // Must be ATTRIBUTE_REF
+            ctx.value = Objects.requireNonNull(attributes.get(text), "Unknown attribute reference: " + text);
+        } else {
+            ctx.value = text;
+        }
+    }
+
     /**
      * Implement dynamo's attribute_exists() function
      * @param valueIn The input value
@@ -118,6 +163,26 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      */
     static AttributeValue attributeNotExists(AttributeValue valueIn) {
         return makeBool(valueIn == null);
+    }
+
+    /**
+     * Add two attribute values. Currently only numbers are supported
+     * @param left The left value
+     * @param right The right value
+     * @return The sum of the values
+     */
+    static AttributeValue add(AttributeValue left, AttributeValue right) {
+        var leftStr = left.n();
+        var rightStr = right.n();
+        if ((leftStr == null) || (rightStr == null)) {
+            throw new RuntimeException("Cannot compute: " + left + " + " + right);
+        }
+        if (leftStr.indexOf('.') >= 0 || rightStr.indexOf('.') >= 0 || leftStr.indexOf('e') >= 0 || rightStr.indexOf('e') >= 0) {
+            // Double precision
+            return AttributeValue.builder().n(Double.toString(Double.parseDouble(leftStr) + Double.parseDouble(rightStr))).build();
+        } else {
+            return AttributeValue.builder().n(Long.toString(Long.parseLong(leftStr) + Long.parseLong(rightStr))).build();
+        }
     }
 
     /**

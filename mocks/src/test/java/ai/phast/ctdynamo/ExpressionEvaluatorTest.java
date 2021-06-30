@@ -27,7 +27,7 @@ public class ExpressionEvaluatorTest {
     @Test
     public void testEvaluate_shouldThrow_whenInvalidExpression() {
         // Setup
-        var expr = new Expression("a !!! b", null, null);
+        var expr = new ConditionExpression("a !!! b", null, null);
 
         // Act & Verify
         Assertions.assertThrows(RuntimeException.class, () -> ExpressionEvaluator.eval(expr, Map.of()));
@@ -36,7 +36,7 @@ public class ExpressionEvaluatorTest {
     @Test
     public void testKeyExpression_shouldComputeBetween_whenKeyExpression() {
         // Setup
-        var expr = new Expression("#p = :p AND #s BETWEEN :s1 AND :s2",
+        var expr = new ConditionExpression("#p = :p AND #s BETWEEN :s1 AND :s2",
             Map.of(":p", av("farm"), ":s1", av("cow"), ":s2", av("horse")),
             Map.of("#p", "p", "#s", "s"));
 
@@ -60,7 +60,7 @@ public class ExpressionEvaluatorTest {
     @Test
     public void testKeyExpression_shouldComputeGreaterThan_whenKeyExpression() {
         // Setup
-        var expr = new Expression("#p = :p AND #s > :s",
+        var expr = new ConditionExpression("#p = :p AND #s > :s",
             Map.of(":p", av("farm"), ":s", av("cow")),
             Map.of("#p", "p", "#s", "s"));
 
@@ -80,7 +80,7 @@ public class ExpressionEvaluatorTest {
     @Test
     public void testKeyExpression_shouldComputeGreaterThanOrEqual_whenKeyExpression() {
         // Setup
-        var expr = new Expression("#p = :p AND #s >= :s",
+        var expr = new ConditionExpression("#p = :p AND #s >= :s",
             Map.of(":p", av("farm"), ":s", av(100)),
             Map.of("#p", "p", "#s", "s"));
 
@@ -100,7 +100,7 @@ public class ExpressionEvaluatorTest {
     @Test
     public void testKeyExpression_shouldComputeLessThan_whenKeyExpression() {
         // Setup
-        var expr = new Expression("#p = :p AND #s < :s",
+        var expr = new ConditionExpression("#p = :p AND #s < :s",
             Map.of(":p", av(5), ":s", av("cow")),
             Map.of("#p", "p", "#s", "s"));
 
@@ -120,7 +120,7 @@ public class ExpressionEvaluatorTest {
     @Test
     public void testKeyExpression_shouldComputeLessThanOrEqual_whenKeyExpression() {
         // Setup
-        var expr = new Expression("#p = :p AND #s <= :s",
+        var expr = new ConditionExpression("#p = :p AND #s <= :s",
             Map.of(":p", av("farm"), ":s", av("cow")),
             Map.of("#p", "p", "#s", "s"));
 
@@ -140,7 +140,7 @@ public class ExpressionEvaluatorTest {
     @Test
     public void testKeyExpression_shouldComputeNotEqual_whenExpressionAlone() {
         // Setup
-        var expr = new Expression("#v <> :v",
+        var expr = new ConditionExpression("#v <> :v",
             Map.of(":v", av("cow")),
             Map.of("#v", "v"));
 
