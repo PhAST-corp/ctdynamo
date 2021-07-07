@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -183,6 +184,25 @@ public class ExpressionEvaluator extends DynamoBaseListener {
         } else {
             return AttributeValue.builder().n(Long.toString(Long.parseLong(leftStr) + Long.parseLong(rightStr))).build();
         }
+    }
+
+    /**
+     * Compute the dynamo list_append function
+     * @param list1 The first list
+     * @param list2 The second list
+     * @return A new attribute value that appends the other two
+     * @throws RuntimeException If either attribute value is a non-list
+     */
+    static AttributeValue listAppend(AttributeValue list1, AttributeValue list2) {
+        if (!list1.hasL()) {
+            throw new RuntimeException("No list in first value: " + list1);
+        }
+        if (!list2.hasL()) {
+            throw new RuntimeException("No list in second value: " + list2);
+        }
+        var result = new ArrayList<>(list1.l());
+        result.addAll(list2.l());
+        return AttributeValue.builder().l(result).build();
     }
 
     /**

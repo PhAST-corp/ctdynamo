@@ -77,6 +77,7 @@ func returns [ AttributeValue value ]
   | 'begins_with' '(' andOr ',' andOr ')' { ExpressionEvaluator.unsupported("begins_with"); }
   | 'size' '(' andOr ')' { ExpressionEvaluator.unsupported("size"); }
   | 'if_not_exists' '(' atomVal=atom ',' andOrVal=andOr ')' { $value = ($atomVal.value == null ? $andOrVal.value : $atomVal.value); }
+  | 'list_append' '(' andOrVal=andOr ',' andOrVal2=andOr ')' { $value = ExpressionEvaluator.listAppend($andOrVal.value, $andOrVal2.value); }
   | dotVal=dot { $value = $dotVal.value; }
   ;
 
@@ -109,7 +110,7 @@ VALUE_REF : ':' ID ;
 
 ATTRIBUTE : ID ;
 
-fragment ID : [a-zA-Z][a-zA-Z0-9]* ;
+fragment ID : [a-zA-Z_][a-zA-Z_0-9]* ;
 
 WS : [ \r\t\n]+ -> skip ;
 

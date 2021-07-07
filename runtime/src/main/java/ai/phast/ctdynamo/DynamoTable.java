@@ -1036,7 +1036,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         var response = (getAsyncClient() == null
                         ? CompletableFuture.supplyAsync(() -> getClient().updateItem(request))
                         : getAsyncClient().updateItem(request));
-        return response.thenApply(resp -> new UpdateItemResult<>(decode(resp.attributes()), new CapacityUsed(resp.consumedCapacity())));
+        return response.thenApply(resp -> new UpdateItemResult<>(resp.hasAttributes() ? decode(resp.attributes()) : null,
+            new CapacityUsed(resp.consumedCapacity())));
     }
 
     /**

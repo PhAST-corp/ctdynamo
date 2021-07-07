@@ -1,5 +1,7 @@
 package ai.phast.ctdynamo;
 
+import ai.phast.ctdynamo.processorTest.ArrayOuterItem;
+import ai.phast.ctdynamo.processorTest.ArrayOuterItemDynamoTable;
 import ai.phast.ctdynamo.tables.NoIndex;
 import ai.phast.ctdynamo.tables.NoIndexDynamoTable;
 import ai.phast.ctdynamo.tables.NoSortKey;
@@ -11,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 public class UpdateTest {
@@ -63,6 +66,30 @@ public class UpdateTest {
         // Verify
         DynamoMockUtil.verifyContainsExactly(table, new NoSortKey("x", 1, 2, null));
         Assertions.assertEquals(new NoSortKey("x", 1, 2, null), result.getItem());
+    }
+
+    @Test
+    public void testListAppend_shouldAppend_whenExpressionProvided() {
+        // Setup
+        var prevItem = new ArrayOuterItem();
+        prevItem.setNums(new int[]{1, 2, 3});
+        prevItem.setPartition(10);
+        var table = DynamoMockUtil.buildMockTable(ArrayOuterItemDynamoTable.class, prevItem);
+
+        // Act
+        var result = table.updateItem(10, null, null,
+            Map.of("nums", "list_append(#nums, :new_nums)"),
+            Map.of(":new_nums", AttributeValue.builder().l(List.of(
+                AttributeValue.builder().n("10").build(),
+                AttributeValue.builder().n("11").build())).build()),
+            Map.of("#nums", "nums"), true);
+
+        // Verify
+        Assertions.assertEquals(prevItem, result.getItem());
+        var expectedItem = new ArrayOuterItem();
+        expectedItem.setNums(new int[]{1, 2, 3, 10, 11});
+        expectedItem.setPartition(10);
+        DynamoMockUtil.verifyContainsExactly(table, expectedItem);
     }
 
     private AttributeValue av(String value) {
