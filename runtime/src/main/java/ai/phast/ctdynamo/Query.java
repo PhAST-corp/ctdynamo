@@ -1,6 +1,7 @@
 package ai.phast.ctdynamo;
 
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.ReturnConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 
 /**
@@ -295,7 +296,8 @@ public final class Query<T, PartitionT, SortT> extends BaseQueryScan<T, DynamoIn
         var builder = QueryRequest.builder()
             .tableName(index.getTableName())
             .consistentRead(isConsistentRead())
-            .filterExpression(getFilterExpression());
+            .filterExpression(getFilterExpression())
+            .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES);
         var indexName = index.getIndexName();
         if (indexName != null) {
             builder.indexName(indexName).select(Select.ALL_ATTRIBUTES);

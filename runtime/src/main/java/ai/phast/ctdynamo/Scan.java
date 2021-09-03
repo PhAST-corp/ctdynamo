@@ -1,5 +1,6 @@
 package ai.phast.ctdynamo;
 
+import software.amazon.awssdk.services.dynamodb.model.ReturnConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 
 /**
@@ -55,7 +56,8 @@ public final class Scan<T> extends BaseQueryScan<T, DynamoIndex<T, ?, ?>, Scan<T
                           .tableName(index.getTableName())
                           .consistentRead(isConsistentRead())
                           .segment(segment)
-                          .totalSegments(numSegments);
+                          .totalSegments(numSegments)
+                          .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES);
         if (getFilterExpression() != null) {
             builder.filterExpression(getFilterExpression())
                 .expressionAttributeNames(getAttributeNames())

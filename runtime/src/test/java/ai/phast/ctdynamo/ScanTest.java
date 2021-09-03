@@ -3,6 +3,7 @@ package ai.phast.ctdynamo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ReturnConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
@@ -20,6 +21,7 @@ public class ScanTest {
                 .tableName("mock")
                 .totalSegments(1)
                 .segment(0)
+                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                 .build(),
             ScanResponse.builder().build());
         var table = new MockTable(client, null, "mock");
@@ -41,12 +43,14 @@ public class ScanTest {
                     .tableName("mock")
                     .totalSegments(1)
                     .segment(0)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                     .build(),
                 ScanRequest.builder()
                     .tableName("mock")
                     .totalSegments(1)
                     .segment(0)
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s500")))
+                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                     .build()),
             List.of(
                 ScanResponse.builder()
@@ -82,6 +86,7 @@ public class ScanTest {
                 .segment(0)
                 .totalSegments(1)
                 .limit(2)
+                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                 .build(),
             ScanResponse.builder()
                 .items(List.of(
@@ -111,6 +116,7 @@ public class ScanTest {
                 .segment(0)
                 .totalSegments(1)
                 .limit(1)
+                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                 .build(),
             ScanResponse.builder()
                 .items(List.of(
@@ -136,6 +142,7 @@ public class ScanTest {
                 .tableName("mock")
                 .segment(0)
                 .totalSegments(1)
+                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                 .build(),
             ScanResponse.builder().build());
         var table = new MockTable(client, null, "mock");
@@ -157,12 +164,14 @@ public class ScanTest {
                     .tableName("mock")
                     .segment(0)
                     .totalSegments(1)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                     .build(),
                 ScanRequest.builder()
                     .tableName("mock")
                     .segment(0)
                     .totalSegments(1)
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s500")))
+                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                     .build()),
             List.of(
                 ScanResponse.builder()
@@ -198,6 +207,7 @@ public class ScanTest {
                 .segment(0)
                 .totalSegments(1)
                 .limit(2)
+                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                 .build(),
             ScanResponse.builder()
                 .items(List.of(
@@ -227,6 +237,7 @@ public class ScanTest {
                 .limit(1)
                 .segment(0)
                 .totalSegments(1)
+                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                 .build(),
             ScanResponse.builder()
                 .items(List.of(
