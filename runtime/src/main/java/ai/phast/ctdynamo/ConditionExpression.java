@@ -27,7 +27,7 @@ public class ConditionExpression {
      * @param values The optional values of the expression
      * @param attributeNames The optional attribute names referenced by the expression
      */
-    protected ConditionExpression(String expression, Map<String, AttributeValue> values, Map<String, String> attributeNames) {
+    public ConditionExpression(String expression, Map<String, AttributeValue> values, Map<String, String> attributeNames) {
         this.expression = expression;
         this.values = values;
         this.attributeNames = attributeNames;
