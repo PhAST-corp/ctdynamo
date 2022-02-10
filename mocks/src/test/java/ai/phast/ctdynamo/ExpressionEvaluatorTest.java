@@ -153,6 +153,38 @@ public class ExpressionEvaluatorTest {
         assert notEqual;
     }
 
+    @Test
+    public void testKeyExpression_shouldComputeContains_whenProvidedStrings() {
+        // Setup
+        var expr = new ConditionExpression("contains(:v, #v)",
+            Map.of(":v", av("the lazy dog jumped")),
+            Map.of("#v", "v"));
+
+        // Act
+        var containsDog = ExpressionEvaluator.evalBool(expr, Map.of("v", av(" dog ")));
+        var containsCat = ExpressionEvaluator.evalBool(expr, Map.of("v", av(" cat ")));
+
+        // Verify
+        assert containsDog;
+        assert !containsCat;
+    }
+
+    @Test
+    public void testKeyExpression_shouldComputeBeginsWith_whenProvidedStrings() {
+        // Setup
+        var expr = new ConditionExpression("begins_with(:v, #v)",
+            Map.of(":v", av("the lazy dog jumped")),
+            Map.of("#v", "v"));
+
+        // Act
+        var startsWithThe = ExpressionEvaluator.evalBool(expr, Map.of("v", av("the")));
+        var startsWithDog = ExpressionEvaluator.evalBool(expr, Map.of("v", av("dog")));
+
+        // Verify
+        assert startsWithThe;
+        assert !startsWithDog;
+    }
+
     private AttributeValue av(String value) {
         return AttributeValue.builder().s(value).build();
     }

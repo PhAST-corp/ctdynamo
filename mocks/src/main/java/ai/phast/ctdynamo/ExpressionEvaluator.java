@@ -206,6 +206,44 @@ public class ExpressionEvaluator extends DynamoBaseListener {
     }
 
     /**
+     * Compute the dynamo contains() function
+     * @param str The string to check
+     * @param searchFor The string to search for
+     * @return true if str contains searchFor
+     */
+    static AttributeValue contains(AttributeValue str, AttributeValue searchFor) {
+        if (str.nul() == Boolean.TRUE) {
+            return AttributeValue.builder().bool(false).build(); // Null contains nothing
+        }
+        if (str.s() == null) {
+            throw new RuntimeException("Non-string value as first parameter in contains()");
+        }
+        if (searchFor.s() == null) {
+            throw new RuntimeException("Non-string value as second parameter is contains()");
+        }
+        return AttributeValue.builder().bool(str.s().contains(searchFor.s())).build();
+    }
+
+    /**
+     * Compute the dynamo begins_with function
+     * @param str The string to test
+     * @param prefix Text that you look for at the front
+     * @return true if str starts with prefix
+     */
+    static AttributeValue beginsWith(AttributeValue str, AttributeValue prefix) {
+        if (str.nul() == Boolean.TRUE) {
+            return AttributeValue.builder().bool(false).build(); // Null doesn't begin with anything
+        }
+        if (str.s() == null) {
+            throw new RuntimeException("Non-string value as first parameter in begins_with()");
+        }
+        if (prefix.s() == null) {
+            throw new RuntimeException("Non-string value as second parameter is begins_with()");
+        }
+        return AttributeValue.builder().bool(str.s().startsWith(prefix.s())).build();
+    }
+
+    /**
      * Turn a boolean into an AttributeValue
      * @param value The boolean
      * @return The AttributeValue

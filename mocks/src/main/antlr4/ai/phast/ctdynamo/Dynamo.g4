@@ -73,8 +73,8 @@ func returns [ AttributeValue value ]
   : 'attribute_exists' '(' dotVal=dot ')' { $value = ExpressionEvaluator.attributeExists($dotVal.value); }
   | 'attribute_not_exists' '(' dotVal=dot ')' { $value = ExpressionEvaluator.attributeNotExists($dotVal.value); }
   | 'attribute_type' '(' dot ')' { ExpressionEvaluator.unsupported("attribute_type"); }
-  | 'contains' '(' dot ',' andOr ')' { ExpressionEvaluator.unsupported("contains"); }
-  | 'begins_with' '(' andOr ',' andOr ')' { ExpressionEvaluator.unsupported("begins_with"); }
+  | 'contains' '(' dotVal=dot ',' andOrVal=andOr ')' { $value = ExpressionEvaluator.contains($dotVal.value, $andOrVal.value); }
+  | 'begins_with' '(' andOrVal=andOr ',' andOrVal2=andOr ')' { $value = ExpressionEvaluator.beginsWith($andOrVal.value, $andOrVal2.value); }
   | 'size' '(' andOr ')' { ExpressionEvaluator.unsupported("size"); }
   | 'if_not_exists' '(' atomVal=atom ',' andOrVal=andOr ')' { $value = ($atomVal.value == null ? $andOrVal.value : $atomVal.value); }
   | 'list_append' '(' andOrVal=andOr ',' andOrVal2=andOr ')' { $value = ExpressionEvaluator.listAppend($andOrVal.value, $andOrVal2.value); }
