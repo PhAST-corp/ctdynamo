@@ -129,7 +129,7 @@ class InMemoryDynamoStore {
         }
         sortComparator = comparator;
         if (items != null) {
-            addAll(items);
+            addAll(items, false);
         }
     }
 
@@ -264,12 +264,33 @@ class InMemoryDynamoStore {
     }
 
     /**
-     * Add a collection of items to the table
+     * Add a collection of items to the table. Replacements do not throw exceptions
      *
      * @param newItems The items to add
      */
-    public final synchronized void addAll(Collection<Map<String, AttributeValue>> newItems) {
-        newItems.forEach(this::add);
+    public final void addAll(Collection<Map<String, AttributeValue>> newItems) {
+        addAll(newItems, true);
+    }
+
+    /**
+     * Add a collection of items to the table
+     *
+     * @param newItems The items to add
+     * @param replaceOk If false, then we throw an exception if an added item replacing something already in the
+     *   table or another item in the list to add
+     * @throws IllegalArgumentException If replaceOk is not set and we have a replacement
+     */
+    public final synchronized void addAll(Collection<Map<String, AttributeValue>> newItems, boolean replaceOk) {
+        if (replaceOk) {
+            newItems.forEach(this::add);
+        } else {
+            for (var item: newItems) {
+                var prevItem = add(item);
+                if (prevItem != null) {
+                    throw new IllegalArgumentException("Item " + item + " replaced " + prevItem);
+                }
+            }
+        }
     }
 
     /**

@@ -403,4 +403,13 @@ public class MockDynamoClientTest {
         // Verify
         DynamoMockUtil.verifyContainsExactly(table, new NoIndex("a", 10, true));
     }
+
+    @Test
+    public void testTableCreate_shoudThrowException_whenTwoItemsWithSameKeys() {
+        // Act & verify
+        Assertions.assertThrows(IllegalArgumentException.class,
+            () -> DynamoMockUtil.buildMockTable(
+                NoIndexDynamoTable.class,
+                new NoIndex("x", 100, true), new NoIndex("x", 100, false)));
+    }
 }
