@@ -277,7 +277,7 @@ class InMemoryDynamoStore {
      *
      * @param newItems The items to add
      * @param replaceOk If false, then we throw an exception if an added item replacing something already in the
-     *   table or another item in the list to add
+     *     table or another item in the list to add
      * @throws IllegalArgumentException If replaceOk is not set and we have a replacement
      */
     public final synchronized void addAll(Collection<Map<String, AttributeValue>> newItems, boolean replaceOk) {
