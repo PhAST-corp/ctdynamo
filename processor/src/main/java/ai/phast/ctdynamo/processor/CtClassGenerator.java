@@ -25,6 +25,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -1013,6 +1014,17 @@ public class CtClassGenerator {
                     }
                     return "$" + avId + ":T.builder().bool(" + valueVar + ").build()";
                 case ARRAY:
+                    if (((ArrayType) returnType).getComponentType().getKind() == TypeKind.BYTE) {
+                        // Byte array. Handled as a binary.
+                        if (toBareString) {
+                            throw new CtException("Cannot convert a byte[] to a plain string", element);
+                        }
+                        formatData.put(typeId, SdkBytes.class);
+                        return "$" + avId + ":T.builder().b($" + typeId + ":T.fromByteArray(" + valueVar + ")).build()";
+                    } else {
+                        // Non-byte array. Fall out to the complex structures.
+                        break;
+                    }
                 case DECLARED:
                     break;
                 default:
@@ -1184,6 +1196,16 @@ public class CtClassGenerator {
                     }
                     return valueVar + ".bool()";
                 case ARRAY:
+                    if (((ArrayType) returnType).getComponentType().getKind() == TypeKind.BYTE) {
+                        // Byte array. Handled as a binary.
+                        if (bareString) {
+                            throw new CtException("Cannot convert a bare string value to boolean");
+                        }
+                        return valueVar + ".b().asByteArray()";
+                    } else {
+                        // Non-byte array. Fall out to the complex structures.
+                        break;
+                    }
                 case DECLARED:
                     break;
                 default:
@@ -1404,7 +1426,7 @@ public class CtClassGenerator {
     @Setter
     @Getter
     @AllArgsConstructor
-    private class TypeMirrorElementPair {
+    private static class TypeMirrorElementPair {
 
         /** The type mirror */
         private TypeMirror typeMirror;
