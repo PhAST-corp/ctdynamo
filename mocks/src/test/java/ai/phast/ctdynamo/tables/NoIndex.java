@@ -26,4 +26,24 @@ public class NoIndex {
     private int sort;
 
     private boolean bVal;
+
+    /** Should be ignored by codec generator, will throw if it isn't */
+    private String getShouldIgnore() {
+        throw new RuntimeException();
+    }
+
+    /** Should be ignored by codec generator, will throw if it isn't */
+    private void setShouldIgnore(String value) {
+        throw new RuntimeException();
+    }
+
+    /** Should be ignored by codec generator, will throw if it isn't */
+    public static String getAlsoIgnore() {
+        throw new RuntimeException();
+    }
+
+    /** Should be ignored by codec generator, will throw if it isn't */
+    public static void setAlsoIgnore(String value) {
+        throw new RuntimeException();
+    }
 }

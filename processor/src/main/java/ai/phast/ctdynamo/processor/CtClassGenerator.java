@@ -197,6 +197,12 @@ public class CtClassGenerator {
      * @return The predicted attribute name if this is a getter, otherwise null
      */
     private String isGetter(ExecutableElement exec) {
+        var modifiers = exec.getModifiers();
+        if (modifiers.contains(Modifier.PRIVATE) || modifiers.contains(Modifier.STATIC)) {
+            // Never use private or static methods, we can't access the privates and the statics do not refer to
+            // this object
+            return null;
+        }
         var name = exec.getSimpleName().toString();
         if (name.startsWith("get") && name.length() >= 4 && Character.isUpperCase(name.charAt(3))) {
             return Character.toLowerCase(name.charAt(3)) + name.substring(4);
@@ -216,6 +222,12 @@ public class CtClassGenerator {
      * @return The predicted attribute name if this is a setter, otherwise null
      */
     private String isSetter(ExecutableElement exec) {
+        var modifiers = exec.getModifiers();
+        if (modifiers.contains(Modifier.PRIVATE) || modifiers.contains(Modifier.STATIC)) {
+            // Never use private or static methods, we can't access the privates and the statics do not refer to
+            // this object
+            return null;
+        }
         var name = exec.getSimpleName().toString();
         if (name.startsWith("set") && name.length() >= 4 && Character.isUpperCase(name.charAt(3))) {
             return Character.toLowerCase(name.charAt(3)) + name.substring(4);
