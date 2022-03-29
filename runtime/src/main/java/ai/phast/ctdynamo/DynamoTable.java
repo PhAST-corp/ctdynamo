@@ -528,7 +528,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     public CompletableFuture<Void> putBatchAsync(Collection<T> values) {
         var itemList = getListFromCollection(values);
         int numValues = values.size();
-        var futures = new CompletableFuture<?>[(numValues + MAX_ITEMS_PER_BATCH) / MAX_ITEMS_PER_BATCH];
+        var futures = new CompletableFuture<?>[(numValues + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH];
         for (int i = 0; i < numValues; i += MAX_ITEMS_PER_BATCH) {
             var request = BatchWriteItemRequest.builder()
                               .requestItems(Collections.singletonMap(getTableName(),
