@@ -1067,19 +1067,15 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         for (var entry : encode(item).entrySet()) {
             var attributeName = entry.getKey();
             if (!attributeName.equals(getPartitionKeyAttribute()) && !attributeName.equals(getSortKeyAttribute())) {
-                var attributeRef = "#" + attributeName;
                 var valueRef = ":" + attributeName;
-                expressionsCopy.put(attributeRef, valueRef);
+                expressionsCopy.put(attributeName, valueRef);
                 valuesCopy.put(valueRef, entry.getValue());
-                namesCopy.put(attributeRef, attributeName);
             }
         }
         if (expressions != null) {
             for (var entry : expressions.entrySet()) {
                 var attributeName = entry.getKey();
-                var attributeRef = "#" + attributeName;
-                expressionsCopy.put(attributeRef, entry.getValue());
-                namesCopy.put(attributeRef, attributeName);
+                expressionsCopy.put(attributeName, entry.getValue());
             }
         }
         if (values != null) {
@@ -1113,27 +1109,33 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                                                      Map<String, AttributeValue> values, Map<String, String> attributeNames, boolean returnPrevious) {
         var expression = new StringBuilder();
         List<String> removals = null;
+        var prefix = "SET ";
         for (var entry : expressions.entrySet()) {
             var key = entry.getKey();
             var value = entry.getValue();
-            if (value.equals(UPDATE_REMOVE_ATTRIBUTE)) {
-                // We need to remove this value
-                if (removals == null) {
-                    removals = new ArrayList<>();
+            if (!value.equals(UPDATE_IGNORE_ATTRIBUTE)) {
+                var nameRef = '#' + key;
+                attributeNames.put(nameRef, key);
+                if (value.equals(UPDATE_REMOVE_ATTRIBUTE)) {
+                    // We need to remove this value
+                    if (removals == null) {
+                        removals = new ArrayList<>();
+                    }
+                    removals.add(key);
+                } else {
+                    expression.append(prefix)
+                        .append(nameRef)
+                        .append(" = ")
+                        .append(value);
+                    prefix = ", ";
                 }
-                removals.add(key);
-            } else if (!value.equals(UPDATE_IGNORE_ATTRIBUTE)) {
-                expression.append(expression.length() == 0 ? "SET " : ", ")
-                    .append(key)
-                    .append(" = ")
-                    .append(value);
             }
         }
         if (removals != null) {
-            var prefix = " REMOVE ";
+            prefix = " REMOVE #";
             for (var removal : removals) {
                 expression.append(prefix).append(removal);
-                prefix = ", ";
+                prefix = ", #";
             }
         }
         var requestBuilder = UpdateItemRequest.builder()
