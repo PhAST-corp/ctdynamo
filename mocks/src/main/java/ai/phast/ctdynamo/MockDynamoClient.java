@@ -94,7 +94,7 @@ class MockDynamoClient implements DynamoDbClient {
     }
 
     @Override
-    public GetItemResponse getItem(GetItemRequest getItemRequest) {
+    public synchronized GetItemResponse getItem(GetItemRequest getItemRequest) {
         return GetItemResponse.builder()
                    .item(store.getItem(getItemRequest.key()))
                    .build();
@@ -225,7 +225,7 @@ class MockDynamoClient implements DynamoDbClient {
     }
 
     @Override
-    public DeleteItemResponse deleteItem(DeleteItemRequest deleteItemRequest) {
+    public synchronized DeleteItemResponse deleteItem(DeleteItemRequest deleteItemRequest) {
         if (deleteItemRequest.conditionExpression() != null) {
             var expr = new ConditionExpression(deleteItemRequest.conditionExpression(),
                 deleteItemRequest.expressionAttributeValues(),
@@ -247,7 +247,7 @@ class MockDynamoClient implements DynamoDbClient {
      * @param item The keys of the item to remove
      * @return The removed item
      */
-    public Map<String, AttributeValue> remove(Map<String, AttributeValue> item) {
+    public synchronized Map<String, AttributeValue> remove(Map<String, AttributeValue> item) {
         var result = store.remove(item);
         if (result != null) {
             children.values().forEach(child -> child.remove(result));
@@ -256,7 +256,7 @@ class MockDynamoClient implements DynamoDbClient {
     }
 
     @Override
-    public BatchWriteItemResponse batchWriteItem(BatchWriteItemRequest request) {
+    public synchronized BatchWriteItemResponse batchWriteItem(BatchWriteItemRequest request) {
         var response = BatchWriteItemResponse.builder();
         var unprocessed = new ArrayList<WriteRequest>();
         for (var requestTableName: request.requestItems().keySet()) {
@@ -282,7 +282,7 @@ class MockDynamoClient implements DynamoDbClient {
     }
 
     @Override
-    public BatchGetItemResponse batchGetItem(BatchGetItemRequest batchGetItemRequest) {
+    public synchronized BatchGetItemResponse batchGetItem(BatchGetItemRequest batchGetItemRequest) {
         var results = new ArrayList<Map<String, AttributeValue>>();
         var unprocessedKeys = new ArrayList<Map<String, AttributeValue>>();
         for (var requestTableName: batchGetItemRequest.requestItems().keySet()) {
@@ -305,7 +305,7 @@ class MockDynamoClient implements DynamoDbClient {
     }
 
     @Override
-    public UpdateItemResponse updateItem(UpdateItemRequest request) {
+    public synchronized UpdateItemResponse updateItem(UpdateItemRequest request) {
         var prevItem = Optional.ofNullable(store.getItem(request.key())).orElse(Collections.emptyMap());
         if (request.conditionExpression() != null) {
             if (!ExpressionEvaluator.evalBool(new ConditionExpression(request.conditionExpression(),
@@ -345,7 +345,7 @@ class MockDynamoClient implements DynamoDbClient {
      * @param item The item
      * @return The key that will match the item
      */
-    public Map<String, AttributeValue> toKey(Map<String, AttributeValue> item) {
+    public synchronized Map<String, AttributeValue> toKey(Map<String, AttributeValue> item) {
         return item.entrySet().stream()
                    .filter(e -> e.getKey().equals(tableInstance.getPartitionKeyAttribute()) || e.getKey().equals(tableInstance.getSortKeyAttribute()))
                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
