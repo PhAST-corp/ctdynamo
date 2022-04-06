@@ -43,8 +43,8 @@ class AttributeComparator implements Comparator<AttributeValue> {
 
         var text1 = value1.s();
         if (text1 != null) {
-            // It's a text object. Easy enough, string compary vs. the other attribute value
-            return text1.compareTo(Objects.requireNonNull(value2.s(), "Cannot compare: " + value1 + " vs. " + value2));
+            // It's a text object. Easy enough, string compare vs. the other attribute value
+            return value2 == null ? 1 : text1.compareTo(Objects.requireNonNull(value2.s(), "Cannot compare: " + value1 + " vs. " + value2));
         }
 
         text1 = value1.n();
