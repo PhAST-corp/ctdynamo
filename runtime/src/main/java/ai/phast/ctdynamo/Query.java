@@ -324,6 +324,6 @@ public final class Query<T, PartitionT, SortT> extends BaseQueryScan<T, DynamoIn
         if (pageSize > 0) {
             builder.limit(pageSize);
         }
-        return new QueryResult<>(index, builder, getLimit(), isAsync());
+        return new QueryResult<>(index, builder, getLimit(), isAsync(), isOnePageLimit());
     }
 }

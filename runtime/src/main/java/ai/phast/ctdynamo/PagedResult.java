@@ -42,16 +42,20 @@ abstract class PagedResult<T, ResponseT> extends IterableResult<T> {
     /** If true, we have read a batch that indicates that there is no more data from the query or scan */
     private boolean endOfData;
 
+    /** If true, we only read in one page. Otherwise, we read all pages. */
+    private final boolean onePageLimit;
+
     /**
      * Build a new PageResult
      * @param index The index we queried or scanned
      * @param limit The maximum number of items to return
      * @param prefetch true if we should asynchronously fetch pages before they are needed
+     * @param onePageLimit Should the results be limited to one page?
      */
-    PagedResult(DynamoIndex<T, ?, ?> index, int limit, boolean prefetch) {
+    PagedResult(DynamoIndex<T, ?, ?> index, int limit, boolean prefetch, boolean onePageLimit) {
         super(index, limit);
         this.prefetch = prefetch;
-
+        this.onePageLimit = onePageLimit;
     }
 
     /**
@@ -84,21 +88,30 @@ abstract class PagedResult<T, ResponseT> extends IterableResult<T> {
     /**
      * The "hasNext" function for our iterator. Checks whether we have more data or not. If we are at the end of a
      * page, we will wait for the next page to finish (when we are async) or request the next page and wait for it (when
-     * we ary synchronous)
+     * we are synchronous)
+     * If onePageLimit is true, we only iterate over one page
      * @return true if there is more data to fetch, false if we are at the end of the query/scan
      */
     private boolean iteratorHasNext() {
         // We have to loop here because if a query filter was used, we could get entire pages back that are empty but
         // yet we still have more data to read. So we do this:
-        // 1. Check if our current iterator has data; if so, return true
-        // 2. Check if we've marked the "endOfData" flag; if so, return false
-        // 3. If neither of those was true, then read in the next page, build an iterator around the items in that
+        // 1. Check if our current iterator has data; if so, return true.
+        // 2. If the current iterator exists, but has no data, this means the page is empty. If we
+        //    have a one-page limit, we return false
+        // 3. Check if we've marked the "endOfData" flag; if so, return false
+        // 4. If neither of those was true, then read in the next page, build an iterator around the items in that
         //    page, and loop back to try again. If the page we got back is empty but indicates there is more data
         //    via the exclusive start, then we'll loop back to 3. and get another page
         while (true) {
-            if ((currentPageIterator != null) && currentPageIterator.hasNext()) {
-                // We have an iterator, it has another element
-                return true;
+            if (currentPageIterator != null) {
+                if (currentPageIterator.hasNext()) {
+                    // We have an iterator, it has another element
+                    return true;
+                } else if (onePageLimit) {
+                    // We are only reading one page, and we had an iterator, but it ran out.
+                    endOfData = true;
+                    return false;
+                }
             }
             currentPageIterator = null; // Indicate we do not have a useful iterator
             if (endOfData) {

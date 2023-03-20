@@ -74,6 +74,6 @@ public final class Scan<T> extends BaseQueryScan<T, DynamoIndex<T, ?, ?>, Scan<T
         if (pageSize > 0) {
             builder.limit(pageSize);
         }
-        return new ScanResult<>(index, builder, getLimit(), isAsync());
+        return new ScanResult<>(index, builder, getLimit(), isAsync(), isOnePageLimit());
     }
 }

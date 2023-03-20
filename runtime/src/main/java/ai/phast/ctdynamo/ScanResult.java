@@ -26,9 +26,10 @@ class ScanResult<T> extends PagedResult<T, ScanResponse> {
      * @param scanBuilder The query builder to submit for each page
      * @param limit The maximum number of items to return
      * @param prefetch true for asynchronous operation, false for synchronous
+     * @param onePageLimit Should the results be limited to one page?
      */
-    ScanResult(DynamoIndex<T, ?, ?> index, ScanRequest.Builder scanBuilder, int limit, boolean prefetch) {
-        super(index, limit, prefetch);
+    ScanResult(DynamoIndex<T, ?, ?> index, ScanRequest.Builder scanBuilder, int limit, boolean prefetch, boolean onePageLimit) {
+        super(index, limit, prefetch, onePageLimit);
         this.scanBuilder = scanBuilder;
         init();
     }

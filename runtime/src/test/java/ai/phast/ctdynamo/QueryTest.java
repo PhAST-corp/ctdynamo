@@ -123,6 +123,80 @@ public class QueryTest {
     }
 
     @Test
+    public void testQuery_shouldReturnItemsFromOnePage_whenResultIsMultipageAndOnePageLimitIsTrue() {
+        // Setup
+        var client = new MockClient(
+            List.of(
+                QueryRequest.builder()
+                    .tableName("mock")
+                    .scanIndexForward(true)
+                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .expressionAttributeNames(Map.of("#partition", "partition"))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .limit(2)
+                    .build()),
+            List.of(
+                QueryResponse.builder()
+                    .items(List.of(
+                        Map.of("partition", av("p"), "sort", av("s"), "ival", av(123)),
+                        Map.of("partition", av("p"), "sort", av("sss"), "ival", av(456))))
+                    .lastEvaluatedKey(Map.of("partition", av("p"), "sort", av("s500")))
+                    .build(),
+                QueryResponse.builder()
+                    .items(List.of(
+                        Map.of("partition", av("p"), "sort", av("sssss"), "ival", av(789))))
+                    .build()));
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        var result = table.query("p").pageSize(2).onePageLimit(true).invoke();
+
+        // Verify
+        Assertions.assertEquals(List.of(
+            new MockItem("p", "s", 123),
+            new MockItem("p", "sss", 456)),
+            result.stream().collect(Collectors.toList()));
+        Assertions.assertEquals(result.getExclusiveStartKey(),
+            table.getExclusiveStartKey(Map.of("partition", av("p"), "sort", av("s500"))));
+    }
+
+    @Test
+    public void testQuery_shouldReturnAllItems_whenResultIsNotMultipageAndOnePageLimitIsTrue() {
+        // Setup
+        var client = new MockClient(
+            List.of(
+                QueryRequest.builder()
+                    .tableName("mock")
+                    .scanIndexForward(true)
+                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .expressionAttributeNames(Map.of("#partition", "partition"))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .limit(2)
+                    .build()),
+            List.of(
+                QueryResponse.builder()
+                    .items(List.of(
+                        Map.of("partition", av("p"), "sort", av("s"), "ival", av(123)),
+                        Map.of("partition", av("p"), "sort", av("sss"), "ival", av(456)),
+                        Map.of("partition", av("p"), "sort", av("sssss"), "ival", av(789))))
+                    .build()));
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        var result = table.query("p").pageSize(2).onePageLimit(true).invoke();
+
+        // Verify
+        Assertions.assertEquals(List.of(
+                new MockItem("p", "s", 123),
+                new MockItem("p", "sss", 456),
+                new MockItem("p", "sssss", 789)),
+            result.stream().collect(Collectors.toList()));
+        Assertions.assertNull(result.getExclusiveStartKey());
+    }
+
+    @Test
     public void testQuery_shouldReturnItemsFromAllPages_whenResultIsMultipage() {
         // Setup
         var client = new MockClient(
@@ -162,9 +236,9 @@ public class QueryTest {
 
         // Verify
         Assertions.assertEquals(List.of(
-            new MockItem("p", "s", 123),
-            new MockItem("p", "sss", 456),
-            new MockItem("p", "sssss", 789)),
+                new MockItem("p", "s", 123),
+                new MockItem("p", "sss", 456),
+                new MockItem("p", "sssss", 789)),
             result.stream().collect(Collectors.toList()));
         Assertions.assertNull(result.getExclusiveStartKey());
     }

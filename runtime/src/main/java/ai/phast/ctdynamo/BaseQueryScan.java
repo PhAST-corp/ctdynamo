@@ -36,6 +36,9 @@ abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?>, ThisT exten
     /** The maximum number of items per page to return, or -1 if we want the biggest pages that dynamo will supply */
     private int pageSize = -1;
 
+    /** When invoking the query, should we stop at one page? */
+    private boolean onePageLimit;
+
     /** true if this is asynchronous, false if it is synchronous */
     private boolean isAsync;
 
@@ -96,7 +99,17 @@ abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?>, ThisT exten
      * @return This query or scan
      */
     public ThisT pageSize(int value) {
-        pageSize = value;
+        this.pageSize = value;
+        return self();
+    }
+
+    /**
+     * Sets the one page limit field
+     * @param value Should the query results be limited to one page?
+     * @return This query or scan
+     */
+    public ThisT onePageLimit(boolean value) {
+        this.onePageLimit = value;
         return self();
     }
 
@@ -171,6 +184,14 @@ abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?>, ThisT exten
         } else {
             return filterExpression == null ? limit : limit * 2;
         }
+    }
+
+    /**
+     * Gets the onePageLimit field, which indicates if the query should search for one page, or all pages
+     * @return The onePageLimit boolean
+     */
+    final boolean isOnePageLimit() {
+        return onePageLimit;
     }
 
     /**

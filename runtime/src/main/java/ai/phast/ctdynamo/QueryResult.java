@@ -26,9 +26,10 @@ class QueryResult<T> extends PagedResult<T, QueryResponse> {
      * @param queryBuilder The query builder to submit for each page
      * @param limit The maximum number of items to return
      * @param prefetch true for asynchronous operation, false for synchronous
+     * @param onePageLimit Should the results be limited to one page?
      */
-    QueryResult(DynamoIndex<T, ?, ?> index, QueryRequest.Builder queryBuilder, int limit, boolean prefetch) {
-        super(index, limit, prefetch);
+    QueryResult(DynamoIndex<T, ?, ?> index, QueryRequest.Builder queryBuilder, int limit, boolean prefetch, boolean onePageLimit) {
+        super(index, limit, prefetch, onePageLimit);
         this.queryBuilder = queryBuilder;
         init();
     }
