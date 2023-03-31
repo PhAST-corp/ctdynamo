@@ -22,8 +22,8 @@ public abstract class IterableResult<T> implements Iterable<T> {
     /** Count of all items returned by all queries. Includes the items that we threw away if the last request had too many */
     private int numItemsFound;
 
-    /** Count of all items scanned by all queries */
-    private int numItemsScanned;
+    /** Count of all items read by all queries */
+    private int numItemsRead;
 
     /** Count of all items returned to the iterator */
     private int numItemsReturned;
@@ -80,25 +80,25 @@ public abstract class IterableResult<T> implements Iterable<T> {
      * Add more items returned to the current count
      * @param value The number of items that have been returned by the latest page
      */
-    void addNumItemsReturned(int value) {
+    final void addNumItemsReturned(int value) {
         numItemsReturned += value;
     }
 
     /**
-     * Return the total number of items that have been scanned so far by this query or scan. When there is no query
-     * filter, this will always be equal to getItemsReturned.
-     * @return The total number of items that have been scanned so far by this query or scan.
+     * Return the total number of items that have been read from storage so far by this query or scan. This is the
+     * number of items found, plus the number of items that were read but excluded by the filter
+     * @return The total number of items that have been read so far by this query or scan.
      */
-    public int getNumItemsScanned() {
-        return numItemsScanned;
+    public int getNumItemsRead() {
+        return numItemsRead;
     }
 
     /**
-     * Add more items scanned to the current count
+     * Add more items read from storage to the current count
      * @param value The number of items that have been scanned in the latest page
      */
-    void addNumItemsScanned(int value) {
-        numItemsScanned += value;
+    final void addNumItemsRead(int value) {
+        numItemsRead += value;
     }
 
     /**
@@ -114,7 +114,7 @@ public abstract class IterableResult<T> implements Iterable<T> {
      * Add more items that were found by the latest page
      * @param value The number of items found in the latest page
      */
-    void addNumItemsFound(int value) {
+    final void addNumItemsFound(int value) {
         numItemsFound += value;
     }
 

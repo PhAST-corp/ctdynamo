@@ -154,6 +154,8 @@ public class MockClient implements DynamoDbClient {
             }
             throw new RuntimeException("Found no entry matching " + input + "; requests: " + expectedRequests);
         } else {
+            Assertions.assertTrue(id < expectedRequests.size(),
+                "Already processed the " + expectedRequests.size() + " expected requests, got another: " + input);
             Assertions.assertEquals(expectedRequests.get(id), input);
             var response = cannedResponses.get(id++);
             if (response instanceof RuntimeException) {

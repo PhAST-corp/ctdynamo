@@ -70,10 +70,7 @@ public final class Scan<T> extends BaseQueryScan<T, DynamoIndex<T, ?, ?>, Scan<T
         if (getExclusiveStartKey() != null) {
             builder.exclusiveStartKey(getExclusiveStartKey());
         }
-        var pageSize = getPageSize();
-        if (pageSize > 0) {
-            builder.limit(pageSize);
-        }
-        return new ScanResult<>(index, builder, getLimit(), isAsync(), isOnePageLimit());
+        return new ScanResult<>(index, builder, getLimit(), isAsync(), getReadLimit(),
+            getPageSize(), getFilterExpression() != null);
     }
 }

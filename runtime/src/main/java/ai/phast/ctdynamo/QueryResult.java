@@ -26,18 +26,25 @@ class QueryResult<T> extends PagedResult<T, QueryResponse> {
      * @param queryBuilder The query builder to submit for each page
      * @param limit The maximum number of items to return
      * @param prefetch true for asynchronous operation, false for synchronous
-     * @param onePageLimit Should the results be limited to one page?
+     * @param readLimit The limit of the number of items we should read, or -1 if there is no limit
+     * @param pageSize The size of each read page, or -1 if we want as much as dynamo will provide
+     * @param isFiltered A flag telling us whether or not the results may be filtered - that is, whether or not
+     *     reads may be ignored
      */
-    QueryResult(DynamoIndex<T, ?, ?> index, QueryRequest.Builder queryBuilder, int limit, boolean prefetch, boolean onePageLimit) {
-        super(index, limit, prefetch, onePageLimit);
+    QueryResult(DynamoIndex<T, ?, ?> index, QueryRequest.Builder queryBuilder, int limit, boolean prefetch,
+                int readLimit, int pageSize, boolean isFiltered) {
+        super(index, limit, prefetch, pageSize, readLimit, isFiltered);
         this.queryBuilder = queryBuilder;
         init();
     }
 
     @Override
-    CompletableFuture<QueryResponse> fetchNextPage(Map<String, AttributeValue> exclusiveStart) {
+    CompletableFuture<QueryResponse> fetchNextPage(Map<String, AttributeValue> exclusiveStart, int pageSize) {
         if (exclusiveStart != null) {
             queryBuilder.exclusiveStartKey(exclusiveStart);
+        }
+        if (pageSize >= 0) {
+            queryBuilder.limit(pageSize);
         }
         var request = queryBuilder.build();
         return getIndex().getAsyncClient() == null
@@ -46,9 +53,12 @@ class QueryResult<T> extends PagedResult<T, QueryResponse> {
     }
 
     @Override
-    QueryResponse fetchCurrentPage(Map<String, AttributeValue> exclusiveStart) {
+    QueryResponse fetchCurrentPage(Map<String, AttributeValue> exclusiveStart, int pageSize) {
         if (exclusiveStart != null) {
             queryBuilder.exclusiveStartKey(exclusiveStart);
+        }
+        if (pageSize >= 0) {
+            queryBuilder.limit(pageSize);
         }
         var request = queryBuilder.build();
         return getIndex().getClient() == null

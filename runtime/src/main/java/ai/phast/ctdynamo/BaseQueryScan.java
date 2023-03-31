@@ -36,8 +36,8 @@ abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?>, ThisT exten
     /** The maximum number of items per page to return, or -1 if we want the biggest pages that dynamo will supply */
     private int pageSize = -1;
 
-    /** When invoking the query, should we stop at one page? */
-    private boolean onePageLimit;
+    /** The maxiumum number of items we will read from the database. -1 if there is no limit */
+    private int readLimit = -1;
 
     /** true if this is asynchronous, false if it is synchronous */
     private boolean isAsync;
@@ -99,17 +99,18 @@ abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?>, ThisT exten
      * @return This query or scan
      */
     public ThisT pageSize(int value) {
-        this.pageSize = value;
+        pageSize = value;
         return self();
     }
 
     /**
-     * Sets the one page limit field
-     * @param value Should the query results be limited to one page?
+     * Set the read limit. This indicates the most entries that we will read in the table; this differs from "limit"
+     * when there is a filter involved, some items may be read but excluded by the filter from the result list
+     * @param value The maximum number of items to read, or -1 (the default) for no limit
      * @return This query or scan
      */
-    public ThisT onePageLimit(boolean value) {
-        this.onePageLimit = value;
+    public ThisT readLimit(int value) {
+        readLimit = value;
         return self();
     }
 
@@ -174,24 +175,20 @@ abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?>, ThisT exten
     }
 
     /**
-     * Get the page size to use. If the page size has not been set, but the limit has, then the page size will be
-     * based on the limit.
-     * @return The page size to use
+     * Get the page size to use, or -1 if there the page size should be the default. The default is the limit for
+     * queries and scans with no filter, and will be determined adaptively if there is a filter
+     * @return The page size to use or -1 to use the default
      */
     final int getPageSize() {
-        if ((pageSize > 0) || (limit < 0)) {
-            return pageSize;
-        } else {
-            return filterExpression == null ? limit : limit * 2;
-        }
+        return pageSize;
     }
 
     /**
-     * Gets the onePageLimit field, which indicates if the query should search for one page, or all pages
-     * @return The onePageLimit boolean
+     * Get the read limit, or -1 if there is no read limit
+     * @return The read limit, or -1 if there is no read limit
      */
-    final boolean isOnePageLimit() {
-        return onePageLimit;
+    final int getReadLimit() {
+        return readLimit;
     }
 
     /**

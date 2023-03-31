@@ -26,30 +26,44 @@ class ScanResult<T> extends PagedResult<T, ScanResponse> {
      * @param scanBuilder The query builder to submit for each page
      * @param limit The maximum number of items to return
      * @param prefetch true for asynchronous operation, false for synchronous
-     * @param onePageLimit Should the results be limited to one page?
+     * @param readLimit The limit of the number of items we should read, or -1 if there is no limit
+     * @param pageSize The size of each read page, or -1 if we want as much as dynamo will provide
+     * @param isFiltered A flag telling us whether or not the results may be filtered - that is, whether or not
+     *     reads may be ignored
      */
-    ScanResult(DynamoIndex<T, ?, ?> index, ScanRequest.Builder scanBuilder, int limit, boolean prefetch, boolean onePageLimit) {
-        super(index, limit, prefetch, onePageLimit);
+    ScanResult(DynamoIndex<T, ?, ?> index, ScanRequest.Builder scanBuilder, int limit, boolean prefetch,
+               int readLimit, int pageSize, boolean isFiltered) {
+        super(index, limit, prefetch, pageSize, readLimit, isFiltered);
         this.scanBuilder = scanBuilder;
         init();
     }
 
     @Override
-    CompletableFuture<ScanResponse> fetchNextPage(Map<String, AttributeValue> exclusiveStart) {
+    CompletableFuture<ScanResponse> fetchNextPage(Map<String, AttributeValue> exclusiveStart, int pageSize) {
         if (exclusiveStart != null) {
             scanBuilder.exclusiveStartKey(exclusiveStart);
         }
+        if (pageSize >= 0) {
+            scanBuilder.limit(pageSize);
+        }
         var request = scanBuilder.build();
-        return getIndex().getAsyncClient() == null ? CompletableFuture.supplyAsync(() -> getIndex().getClient().scan(request)) : getIndex().getAsyncClient().scan(request);
+        return getIndex().getAsyncClient() == null
+            ? CompletableFuture.supplyAsync(() -> getIndex().getClient().scan(request))
+            : getIndex().getAsyncClient().scan(request);
     }
 
     @Override
-    ScanResponse fetchCurrentPage(Map<String, AttributeValue> exclusiveStart) {
+    ScanResponse fetchCurrentPage(Map<String, AttributeValue> exclusiveStart, int pageSize) {
         if (exclusiveStart != null) {
             scanBuilder.exclusiveStartKey(exclusiveStart);
         }
+        if (pageSize >= 0) {
+            scanBuilder.limit(pageSize);
+        }
         var request = scanBuilder.build();
-        return getIndex().getClient() == null ? getIndex().getAsyncClient().scan(request).join() : getIndex().getClient().scan(request);
+        return getIndex().getClient() == null
+            ? getIndex().getAsyncClient().scan(request).join()
+            : getIndex().getClient().scan(request);
     }
 
     @Override

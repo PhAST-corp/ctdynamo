@@ -255,6 +255,54 @@ public class ScanTest {
         Assertions.assertEquals("p,s", result.getExclusiveStartKey());
     }
 
+    @Test
+    public void testScan_shouldStop_whenReadsLimitedAndPageSizeFixed() {
+        // Setup
+        var client = new MockClient(
+            List.of(
+                ScanRequest.builder()
+                    .tableName("mock")
+                    .limit(5)
+                    .segment(0)
+                    .totalSegments(1)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .filterExpression("attribute_exists(#xyz)")
+                    .expressionAttributeNames(Map.of("#xyz", "xyz"))
+                    .expressionAttributeValues(Map.of())
+                    .build(),
+                ScanRequest.builder()
+                    .tableName("mock")
+                    .limit(3)
+                    .segment(0)
+                    .totalSegments(1)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .filterExpression("attribute_exists(#xyz)")
+                    .expressionAttributeNames(Map.of("#xyz", "xyz"))
+                    .expressionAttributeValues(Map.of())
+                    .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("sss")))
+                    .build()),
+            List.of(
+                ScanResponse.builder()
+                    .items(List.of(Map.of("partition", av("p"), "sort", av("s"), "ival", av(123))))
+                    .lastEvaluatedKey(Map.of("partition", av("p"), "sort", av("sss")))
+                    .scannedCount(5)
+                    .build(),
+                ScanResponse.builder()
+                    .items(List.of())
+                    .lastEvaluatedKey(Map.of("partition", av("p"), "sort", av("sss")))
+                    .scannedCount(3)
+                    .build()));
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        var result = table.scanAsync().filter(ConditionExpression.requirePresent("xyz"))
+            .limit(10).pageSize(5).readLimit(8).invoke();
+
+        // Verify
+        Assertions.assertEquals(List.of(new MockItem("p", "s", 123)), result.stream().collect(Collectors.toList()));
+        Assertions.assertEquals("p,sss", result.getExclusiveStartKey());
+    }
+
     private static AttributeValue av(String value) {
         return DynamoTableTest.av(value);
     }

@@ -320,10 +320,7 @@ public final class Query<T, PartitionT, SortT> extends BaseQueryScan<T, DynamoIn
         }
         builder.expressionAttributeValues(getValues())
             .expressionAttributeNames(getAttributeNames());
-        var pageSize = getPageSize();
-        if (pageSize > 0) {
-            builder.limit(pageSize);
-        }
-        return new QueryResult<>(index, builder, getLimit(), isAsync(), isOnePageLimit());
+        return new QueryResult<>(index, builder, getLimit(), isAsync(), getReadLimit(),
+            getPageSize(), getFilterExpression() != null);
     }
 }
