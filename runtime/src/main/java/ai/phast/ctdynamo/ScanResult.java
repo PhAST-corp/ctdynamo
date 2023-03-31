@@ -39,12 +39,12 @@ class ScanResult<T> extends PagedResult<T, ScanResponse> {
     }
 
     @Override
-    CompletableFuture<ScanResponse> fetchNextPage(Map<String, AttributeValue> exclusiveStart, int pageSize) {
+    CompletableFuture<ScanResponse> fetchNextPage(Map<String, AttributeValue> exclusiveStart, int fetchSize) {
         if (exclusiveStart != null) {
             scanBuilder.exclusiveStartKey(exclusiveStart);
         }
-        if (pageSize >= 0) {
-            scanBuilder.limit(pageSize);
+        if (fetchSize >= 0) {
+            scanBuilder.limit(fetchSize);
         }
         var request = scanBuilder.build();
         return getIndex().getAsyncClient() == null
@@ -53,12 +53,12 @@ class ScanResult<T> extends PagedResult<T, ScanResponse> {
     }
 
     @Override
-    ScanResponse fetchCurrentPage(Map<String, AttributeValue> exclusiveStart, int pageSize) {
+    ScanResponse fetchCurrentPage(Map<String, AttributeValue> exclusiveStart, int fetchSize) {
         if (exclusiveStart != null) {
             scanBuilder.exclusiveStartKey(exclusiveStart);
         }
-        if (pageSize >= 0) {
-            scanBuilder.limit(pageSize);
+        if (fetchSize >= 0) {
+            scanBuilder.limit(fetchSize);
         }
         var request = scanBuilder.build();
         return getIndex().getClient() == null

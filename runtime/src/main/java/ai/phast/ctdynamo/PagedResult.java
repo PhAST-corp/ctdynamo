@@ -147,18 +147,18 @@ abstract class PagedResult<T, ResponseT> extends IterableResult<T> {
     /**
      * Starts a future that will get the next page of the result. Used only in async mode
      * @param exclusiveStart The start point for the next page. May be null for the first page
-     * @param pageSize The number of items to request in the page
+     * @param fetchSize The number of items to request in the page
      * @return A future that will return the next page of results
      */
-    abstract CompletableFuture<ResponseT> fetchNextPage(Map<String, AttributeValue> exclusiveStart, int pageSize);
+    abstract CompletableFuture<ResponseT> fetchNextPage(Map<String, AttributeValue> exclusiveStart, int fetchSize);
 
     /**
      * Fetches the current page of results. Used only in synchronous mode
      * @param exclusiveStart The start point for the current page
-     * @param pageSize The number of items to request in the page
+     * @param fetchSize The number of items to request in the page
      * @return The current page of results
      */
-    abstract ResponseT fetchCurrentPage(Map<String, AttributeValue> exclusiveStart, int pageSize);
+    abstract ResponseT fetchCurrentPage(Map<String, AttributeValue> exclusiveStart, int fetchSize);
 
     /**
      * The "hasNext" function for our iterator. Checks whether we have more data or not. If we are at the end of a
