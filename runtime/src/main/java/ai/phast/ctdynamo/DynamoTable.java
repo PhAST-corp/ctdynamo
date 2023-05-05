@@ -117,7 +117,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         var response = rawGetItem(GetItemRequest.builder()
                                .tableName(getTableName())
                                .key(keysToMap(partitionValue, sortValue))
-                               .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                               .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                                .consistentRead(useConsistentRead)
                                .build());
         return new ExtendedItemResult<>(response.hasItem() ? decode(response.item()) : null,
@@ -179,7 +179,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         return rawGetItemAsync(GetItemRequest.builder()
                             .tableName(getTableName())
                             .key(keysToMap(partitionValue, sortValue))
-                            .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                            .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                             .consistentRead(useConsistentRead)
                             .build())
                    .thenApply(r -> new ExtendedItemResult<>(r.hasItem() ? decode(r.item()) : null, r.consumedCapacity()));
@@ -369,7 +369,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         }
         if (response.hasConsumedCapacity()) {
             for (var cap : response.consumedCapacity()) {
-                result.getCapacity().add(cap);
+                result.updateCapacity(cap);
             }
         }
         if (response.hasUnprocessedKeys() && !response.unprocessedKeys().isEmpty()) {
@@ -473,7 +473,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                              .tableName(getTableName())
                              .item(encode(value))
                              .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.NONE)
-                             .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES);
+                             .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
         if (expected != null) {
             putBuilder.conditionExpression(expected.getExpression())
                 .expressionAttributeNames(expected.getAttributeNames())
@@ -557,7 +557,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                              .tableName(getTableName())
                              .item(encode(value))
                              .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.NONE)
-                             .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES);
+                             .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
         if (expected != null) {
             putBuilder.conditionExpression(expected.getExpression())
                 .expressionAttributeNames(expected.getAttributeNames())
@@ -579,7 +579,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         var result = CompletableFuture.completedFuture(new ExtendedBatchResult<T, T>());
         for (int i = 0; i < numValues; i += MAX_ITEMS_PER_BATCH) {
             var request = BatchWriteItemRequest.builder()
-                              .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                              .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                               .requestItems(Collections.singletonMap(getTableName(),
                                   itemList.subList(i, Math.min(numValues, i + MAX_ITEMS_PER_BATCH)).stream()
                                       .map(value -> WriteRequest.builder().putRequest(PutRequest.builder()
@@ -625,7 +625,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                 .forEach(item -> result.getUnprocessedValues().add(item));
         }
         if (response.hasConsumedCapacity()) {
-            response.consumedCapacity().forEach(cap -> result.getCapacity().add(cap));
+            response.consumedCapacity().forEach(result::updateCapacity);
         }
         return result;
     }
@@ -645,10 +645,10 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param sortKey The sort key of the item to be deleted
      */
     public void deleteItem(PartitionT partitionKey, SortT sortKey) {
-        var deleteResponse = rawDeleteItem(DeleteItemRequest.builder()
-                                            .tableName(getTableName())
-                                            .key(keysToMap(partitionKey, sortKey))
-                                            .build());
+        rawDeleteItem(DeleteItemRequest.builder()
+            .tableName(getTableName())
+            .key(keysToMap(partitionKey, sortKey))
+            .build());
     }
 
     /**
@@ -706,7 +706,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                                  .tableName(getTableName())
                                  .key(keysToMap(partitionKey, sortKey))
                                  .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.NONE)
-                                 .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES);
+                                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
         if (conditionExpression != null) {
             requestBuilder.conditionExpression(conditionExpression.getExpression())
                 .expressionAttributeValues(conditionExpression.getValues())
@@ -836,7 +836,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         return rawDeleteItemAsync(DeleteItemRequest.builder()
                                    .tableName(getTableName())
                                    .key(keysToMap(partitionKey, sortKey))
-                                   .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                                   .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                                    .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.NONE)
                                    .build())
                    .thenApply(resp -> new ExtendedItemResult<>(
@@ -892,7 +892,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                 .forEach(k -> result.getUnprocessedValues().add(k));
         }
         if (response.hasConsumedCapacity()) {
-            response.consumedCapacity().forEach(cap -> result.getCapacity().add(cap));
+            response.consumedCapacity().forEach(result::updateCapacity);
         }
         return result;
     }
@@ -947,7 +947,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         var request = buildUpdateItemRequest(partitionValue, sortValue, condition, expressions, values, attributeNames, returnPrevious);
         var response = (getClient() == null ? getAsyncClient().updateItem(request).join()
                                             : getClient().updateItem(request));
-        return new UpdateItemResult<>(response.hasAttributes() ? decode(response.attributes()) : null, new CapacityUsed(response.consumedCapacity()));
+        return new UpdateItemResult<>(response.hasAttributes() ? decode(response.attributes()) : null, response.consumedCapacity());
     }
 
     /**
@@ -973,7 +973,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                                           boolean returnPrevious) {
         var request = buildUpdateItemRequest(item, condition, expressions, values, attributeNames, returnPrevious);
         var response = (getClient() == null ? getAsyncClient().updateItem(request).join() : getClient().updateItem(request));
-        return new UpdateItemResult<>(response.hasAttributes() ? decode(response.attributes()) : null, new CapacityUsed(response.consumedCapacity()));
+        return new UpdateItemResult<>(response.hasAttributes() ? decode(response.attributes()) : null, response.consumedCapacity());
     }
 
     /**
@@ -1008,7 +1008,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         var response = (getAsyncClient() == null
                         ? CompletableFuture.supplyAsync(() -> getClient().updateItem(request))
                         : getAsyncClient().updateItem(request));
-        return response.thenApply(resp -> new UpdateItemResult<>(decode(resp.attributes()), new CapacityUsed(resp.consumedCapacity())));
+        return response.thenApply(resp -> new UpdateItemResult<>(decode(resp.attributes()), resp.consumedCapacity()));
     }
 
     /**
@@ -1037,7 +1037,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                         ? CompletableFuture.supplyAsync(() -> getClient().updateItem(request))
                         : getAsyncClient().updateItem(request));
         return response.thenApply(resp -> new UpdateItemResult<>(resp.hasAttributes() ? decode(resp.attributes()) : null,
-            new CapacityUsed(resp.consumedCapacity())));
+            resp.consumedCapacity()));
     }
 
     /**
@@ -1139,7 +1139,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
             }
         }
         var requestBuilder = UpdateItemRequest.builder()
-                                 .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                                  .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.ALL_NEW)
                                  .tableName(getTableName())
                                  .key(keysToMap(partitionValue, sortValue));

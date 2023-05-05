@@ -297,7 +297,7 @@ public final class Query<T, PartitionT, SortT> extends BaseQueryScan<T, DynamoIn
             .tableName(index.getTableName())
             .consistentRead(isConsistentRead())
             .filterExpression(getFilterExpression())
-            .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES);
+            .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
         var indexName = index.getIndexName();
         if (indexName != null) {
             builder.indexName(indexName).select(Select.ALL_ATTRIBUTES);

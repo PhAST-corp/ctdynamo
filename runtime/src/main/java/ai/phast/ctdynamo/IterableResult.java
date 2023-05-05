@@ -1,5 +1,7 @@
 package ai.phast.ctdynamo;
 
+import software.amazon.awssdk.services.dynamodb.model.ConsumedCapacity;
+
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -29,7 +31,7 @@ public abstract class IterableResult<T> implements Iterable<T> {
     private int numItemsReturned;
 
     /** The capacity consumed by the operation */
-    private final CapacityUsed capacity = new CapacityUsed();
+    private double capacity;
 
     /**
      * Build a new iterable result
@@ -123,8 +125,21 @@ public abstract class IterableResult<T> implements Iterable<T> {
      * is done will this be the total capacity consumed
      * @return The capacity consumed by this operation
      */
-    public CapacityUsed getCapacity() {
+    public final double getCapacity() {
         return capacity;
+    }
+
+    /**
+     * Update our consumed capacity with more data
+     * @param addedCapacity The added capacity data
+     */
+    void updateCapacity(ConsumedCapacity addedCapacity) {
+        if (addedCapacity != null) {
+            var capUnits = addedCapacity.capacityUnits();
+            if (capUnits != null) {
+                capacity += capUnits;
+            }
+        }
     }
 
     /**

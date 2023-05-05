@@ -21,7 +21,7 @@ public class ScanTest {
                 .tableName("mock")
                 .totalSegments(1)
                 .segment(0)
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             ScanResponse.builder().build());
         var table = new MockTable(client, null, "mock");
@@ -43,14 +43,14 @@ public class ScanTest {
                     .tableName("mock")
                     .totalSegments(1)
                     .segment(0)
-                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 ScanRequest.builder()
                     .tableName("mock")
                     .totalSegments(1)
                     .segment(0)
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s500")))
-                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build()),
             List.of(
                 ScanResponse.builder()
@@ -86,7 +86,7 @@ public class ScanTest {
                 .segment(0)
                 .totalSegments(1)
                 .limit(2)
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             ScanResponse.builder()
                 .items(List.of(
@@ -116,7 +116,7 @@ public class ScanTest {
                 .segment(0)
                 .totalSegments(1)
                 .limit(1)
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             ScanResponse.builder()
                 .items(List.of(
@@ -142,7 +142,7 @@ public class ScanTest {
                 .tableName("mock")
                 .segment(0)
                 .totalSegments(1)
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             ScanResponse.builder().build());
         var table = new MockTable(client, null, "mock");
@@ -164,14 +164,14 @@ public class ScanTest {
                     .tableName("mock")
                     .segment(0)
                     .totalSegments(1)
-                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 ScanRequest.builder()
                     .tableName("mock")
                     .segment(0)
                     .totalSegments(1)
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s500")))
-                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build()),
             List.of(
                 ScanResponse.builder()
@@ -207,7 +207,7 @@ public class ScanTest {
                 .segment(0)
                 .totalSegments(1)
                 .limit(2)
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             ScanResponse.builder()
                 .items(List.of(
@@ -237,7 +237,7 @@ public class ScanTest {
                 .limit(1)
                 .segment(0)
                 .totalSegments(1)
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             ScanResponse.builder()
                 .items(List.of(
@@ -265,7 +265,7 @@ public class ScanTest {
                     .limit(5)
                     .segment(0)
                     .totalSegments(1)
-                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .filterExpression("attribute_exists(#xyz)")
                     .expressionAttributeNames(Map.of("#xyz", "xyz"))
                     .expressionAttributeValues(Map.of())
@@ -275,7 +275,7 @@ public class ScanTest {
                     .limit(3)
                     .segment(0)
                     .totalSegments(1)
-                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .filterExpression("attribute_exists(#xyz)")
                     .expressionAttributeNames(Map.of("#xyz", "xyz"))
                     .expressionAttributeValues(Map.of())

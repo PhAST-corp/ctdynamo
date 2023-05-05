@@ -217,7 +217,6 @@ class MockDynamoClient implements DynamoDbClient {
     private Collection<Map<String, AttributeValue>> getByBetween(AttributeValue partitionValue, AttributeValue s1, AttributeValue s2) {
         // Must be a "between" since we have two sort values
         if (AttributeComparator.INSTANCE.compare(s1, s2) > 0) {
-            System.out.println("WARNING: invalid range, low(" + s1 + ") > high(" + s2 + ")");
             return Collections.emptyList();
         } else {
             return store.getRange(partitionValue, s1, true, s2, true);

@@ -171,12 +171,13 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      * @param left The left value
      * @param right The right value
      * @return The sum of the values
+     * @throws NullPointerException If either attribute is null
      */
     static AttributeValue add(AttributeValue left, AttributeValue right) {
         var leftStr = left.n();
         var rightStr = right.n();
         if ((leftStr == null) || (rightStr == null)) {
-            throw new RuntimeException("Cannot compute: " + left + " + " + right);
+            throw new NullPointerException("Cannot compute: " + left + " + " + right);
         }
         if (leftStr.indexOf('.') >= 0 || rightStr.indexOf('.') >= 0 || leftStr.indexOf('e') >= 0 || rightStr.indexOf('e') >= 0) {
             // Double precision
@@ -209,7 +210,8 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      * Compute the dynamo contains() function
      * @param str The string to check
      * @param searchFor The string to search for
-     * @return true if str contains searchFor
+     * @return AttributeValue true if str contains searchFor
+     * @throws RuntimeException If either str or searchFor are non-string values
      */
     static AttributeValue contains(AttributeValue str, AttributeValue searchFor) {
         if (str.nul() == Boolean.TRUE) {
@@ -228,7 +230,8 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      * Compute the dynamo begins_with function
      * @param str The string to test
      * @param prefix Text that you look for at the front
-     * @return true if str starts with prefix
+     * @return AttributeValue true if str starts with prefix
+     * @throws RuntimeException If str or prefix are non-string values
      */
     static AttributeValue beginsWith(AttributeValue str, AttributeValue prefix) {
         if (str.nul() == Boolean.TRUE) {

@@ -67,7 +67,7 @@ class ScanResult<T> extends PagedResult<T, ScanResponse> {
     }
 
     @Override
-    int getScannedCount(ScanResponse response) {
+    int getNumItemsRead(ScanResponse response) {
         return response.scannedCount() == null ? 0 : response.scannedCount();
     }
 

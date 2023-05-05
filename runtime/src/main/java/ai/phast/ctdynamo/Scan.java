@@ -57,7 +57,7 @@ public final class Scan<T> extends BaseQueryScan<T, DynamoIndex<T, ?, ?>, Scan<T
                           .consistentRead(isConsistentRead())
                           .segment(segment)
                           .totalSegments(numSegments)
-                          .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES);
+                          .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
         if (getFilterExpression() != null) {
             builder.filterExpression(getFilterExpression())
                 .expressionAttributeNames(getAttributeNames())

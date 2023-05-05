@@ -1,5 +1,7 @@
 package ai.phast.ctdynamo;
 
+import software.amazon.awssdk.services.dynamodb.model.ConsumedCapacity;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,7 +20,7 @@ public class ExtendedBatchResult<T, UnprocessedT> {
     private final List<UnprocessedT> unprocessedValues = new ArrayList<>();
 
     /** The capacity used by the request */
-    private final CapacityUsed capacity = new CapacityUsed();
+    private double capacity;
 
     /** Build a blank batch result */
     public ExtendedBatchResult() {
@@ -44,7 +46,20 @@ public class ExtendedBatchResult<T, UnprocessedT> {
      * Get the capacity consumed by the operation
      * @return The capacity consumed by the operation
      */
-    public CapacityUsed getCapacity() {
+    public double getCapacity() {
         return capacity;
+    }
+
+    /**
+     * Update our capacity with a value from Dynamo
+     * @param addedCapacity The capacity to add to our result
+     */
+    void updateCapacity(ConsumedCapacity addedCapacity) {
+        if (addedCapacity != null) {
+            var total = addedCapacity.capacityUnits();
+            if (total != null) {
+                capacity += total;
+            }
+        }
     }
 }

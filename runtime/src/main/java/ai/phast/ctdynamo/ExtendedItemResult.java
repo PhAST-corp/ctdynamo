@@ -13,7 +13,7 @@ public class ExtendedItemResult<T> {
     private final T item;
 
     /** The capacity used by the operation */
-    private final CapacityUsed capacity;
+    private final double capacity;
 
     /**
      * Build a new extended result
@@ -21,17 +21,15 @@ public class ExtendedItemResult<T> {
      * @param rawCapacity The capacity consumed
      */
     ExtendedItemResult(T item, ConsumedCapacity rawCapacity) {
-        this(item, new CapacityUsed(rawCapacity));
-    }
-
-    /**
-     * Build a new extended result
-     * @param item The item returned
-     * @param capacity The capacity consumed
-     */
-    public ExtendedItemResult(T item, CapacityUsed capacity) {
         this.item = item;
-        this.capacity = capacity;
+        var tempCapacity = 0.0;
+        if (rawCapacity != null) {
+            var capacityUnits = rawCapacity.capacityUnits();
+            if (capacityUnits != null) {
+                tempCapacity = capacityUnits;
+            }
+        }
+        capacity = tempCapacity;
     }
 
     /**
@@ -47,7 +45,7 @@ public class ExtendedItemResult<T> {
      * Get the consumed capacity of this operation
      * @return The consumed capacity of this operation
      */
-    public CapacityUsed getCapacity() {
+    public double getCapacity() {
         return capacity;
     }
 }

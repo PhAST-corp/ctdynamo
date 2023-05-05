@@ -7,7 +7,6 @@ import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.Capacity;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.ConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
@@ -71,13 +70,8 @@ public class DynamoTableTest {
     @Test
     public void testGetItemExtended_shouldReturnCapacity_whenProvided() {
         // Setup
-        var client = new MockClient(getItemReq().consistentRead(true).returnConsumedCapacity(ReturnConsumedCapacity.INDEXES).build(),
-            getItemResp().consumedCapacity(ConsumedCapacity.builder()
-                                               .table(Capacity.builder()
-                                                          .capacityUnits(2.0)
-                                                          .readCapacityUnits(2.0)
-                                                          .build())
-                                               .readCapacityUnits(2.0).build())
+        var client = new MockClient(getItemReq().consistentRead(true).returnConsumedCapacity(ReturnConsumedCapacity.TOTAL).build(),
+            getItemResp().consumedCapacity(ConsumedCapacity.builder().capacityUnits(2.0).build())
                 .build());
         var table = new MockTable(client, null, "mock");
 
@@ -86,7 +80,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(new MockItem("p", "s", 10), result.getItem());
-        Assertions.assertEquals(new CapacityUsed(2.0, 0.0, 2.0, 0.0, null), result.getCapacity());
+        Assertions.assertEquals(2.0, result.getCapacity());
     }
 
     @Test
@@ -118,13 +112,8 @@ public class DynamoTableTest {
     @Test
     public void testGetItemExtendedAsync_shouldReturnCapacity_whenProvided() {
         // Setup
-        var client = new MockClient(getItemReq().consistentRead(true).returnConsumedCapacity(ReturnConsumedCapacity.INDEXES).build(),
-            getItemResp().consumedCapacity(ConsumedCapacity.builder()
-                                               .table(Capacity.builder()
-                                                          .capacityUnits(2.0)
-                                                          .readCapacityUnits(2.0)
-                                                          .build())
-                                               .readCapacityUnits(2.0).build())
+        var client = new MockClient(getItemReq().consistentRead(true).returnConsumedCapacity(ReturnConsumedCapacity.TOTAL).build(),
+            getItemResp().consumedCapacity(ConsumedCapacity.builder().capacityUnits(2.0).build())
                 .build());
         var table = new MockTable(client, null, "mock");
 
@@ -133,7 +122,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(new MockItem("p", "s", 10), result.getItem());
-        Assertions.assertEquals(new CapacityUsed(2.0, 0.0, 2.0, 0.0, null), result.getCapacity());
+        Assertions.assertEquals(2.0, result.getCapacity());
     }
 
     @Test
@@ -221,19 +210,13 @@ public class DynamoTableTest {
                     .requestItems(Map.of("mock", KeysAndAttributes.builder().keys(reqItems.subList(25, 50)).consistentRead(false).build())).build()),
             List.of(
                 BatchGetItemResponse.builder()
-                    .consumedCapacity(ConsumedCapacity.builder()
-                                          .readCapacityUnits(25.0)
-                                          .table(Capacity.builder().readCapacityUnits(25.0).build())
-                                          .build())
+                    .consumedCapacity(ConsumedCapacity.builder().capacityUnits(25.0).build())
                     .unprocessedKeys(Map.of("mock", KeysAndAttributes.builder()
                                                         .keys(List.of(Map.of("partition", av("px"),
                                                             "sort", av("sx")))).build()))
                     .responses(Map.of("mock", respItems.subList(0, 25))).build(),
                 BatchGetItemResponse.builder()
-                    .consumedCapacity(ConsumedCapacity.builder()
-                                          .readCapacityUnits(25.0)
-                                          .table(Capacity.builder().readCapacityUnits(25.0).build())
-                                          .build())
+                    .consumedCapacity(ConsumedCapacity.builder().capacityUnits(25.0).build())
                     .unprocessedKeys(Map.of("mock", KeysAndAttributes.builder()
                                                         .keys(List.of(Map.of("partition", av("py"),
                                                             "sort", av("sy")))).build()))
@@ -245,7 +228,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(expectedResult, result.getItems());
-        Assertions.assertEquals(new CapacityUsed(50.0, 0.0, 50.0, 0.0, null), result.getCapacity());
+        Assertions.assertEquals(50.0, result.getCapacity());
         Assertions.assertEquals(List.of(new Key<>("px", "sx"), new Key<>("py", "sy")), result.getUnprocessedValues());
     }
 
@@ -305,19 +288,13 @@ public class DynamoTableTest {
                             .build())).build()),
             List.of(
                 BatchGetItemResponse.builder()
-                    .consumedCapacity(ConsumedCapacity.builder()
-                                          .readCapacityUnits(25.0)
-                                          .table(Capacity.builder().readCapacityUnits(25.0).build())
-                                          .build())
+                    .consumedCapacity(ConsumedCapacity.builder().capacityUnits(25.0).build())
                     .unprocessedKeys(Map.of("mock", KeysAndAttributes.builder()
                                                         .keys(List.of(Map.of("partition", av("px"),
                                                             "sort", av("sx")))).build()))
                     .responses(Map.of("mock", respItems.subList(0, 25))).build(),
                 BatchGetItemResponse.builder()
-                    .consumedCapacity(ConsumedCapacity.builder()
-                                          .readCapacityUnits(25.0)
-                                          .table(Capacity.builder().readCapacityUnits(25.0).build())
-                                          .build())
+                    .consumedCapacity(ConsumedCapacity.builder().capacityUnits(25.0).build())
                     .unprocessedKeys(Map.of("mock", KeysAndAttributes.builder()
                                                         .keys(List.of(Map.of("partition", av("py"),
                                                             "sort", av("sy")))).build()))
@@ -329,7 +306,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(expectedResult, result.getItems());
-        Assertions.assertEquals(new CapacityUsed(50.0, 0.0, 50.0, 0.0, null), result.getCapacity());
+        Assertions.assertEquals(50.0, result.getCapacity());
         Assertions.assertEquals(List.of(new Key<>("px", "sx"), new Key<>("py", "sy")), result.getUnprocessedValues());
     }
 
@@ -354,17 +331,14 @@ public class DynamoTableTest {
         var client = new MockClient(
             PutItemRequest.builder()
                 .tableName("mock")
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
                 .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
                 .build(),
             PutItemResponse.builder()
                 .attributes(Map.of("partition", av("p"), "sort", av("s"), "ival", av(5)))
                 .consumedCapacity(ConsumedCapacity.builder()
-                                      .writeCapacityUnits(3.0)
-                                      .table(Capacity.builder().writeCapacityUnits(2.0).build())
-                                      .globalSecondaryIndexes(Map.of("index", Capacity.builder().writeCapacityUnits(1.0).build()))
-                                      .localSecondaryIndexes(Map.of("lsi", Capacity.builder().writeCapacityUnits(1.0).build()))
+                                      .capacityUnits(3.0)
                                       .build())
                 .build());
         var table = new MockTable(client, null, "mock");
@@ -374,11 +348,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(new MockItem("p", "s", 5), response.getItem());
-        Assertions.assertEquals(
-            new CapacityUsed(0.0, 3.0, 0.0, 2.0,
-                Map.of("index", new CapacityUsed.ReadWrite(0.0, 1.0),
-                    "lsi", new CapacityUsed.ReadWrite(0.0, 1.0))),
-            response.getCapacity());
+        Assertions.assertEquals(3.0, response.getCapacity());
     }
 
     @Test
@@ -387,7 +357,7 @@ public class DynamoTableTest {
         var client = new MockClient(
             PutItemRequest.builder()
                 .tableName("mock")
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
                 .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
                 .conditionExpression("attribute_not_exists(#partition)")
@@ -456,13 +426,9 @@ public class DynamoTableTest {
                     .build()),
             List.of(
                 BatchWriteItemResponse.builder().consumedCapacity(
-                    ConsumedCapacity.builder()
-                        .writeCapacityUnits(25.0)
-                        .table(Capacity.builder().writeCapacityUnits(25.0).build()).build()).build(),
+                    ConsumedCapacity.builder().capacityUnits(25.0).build()).build(),
                 BatchWriteItemResponse.builder().consumedCapacity(
-                    ConsumedCapacity.builder()
-                        .writeCapacityUnits(24.0)
-                        .table(Capacity.builder().writeCapacityUnits(24.0).build()).build())
+                    ConsumedCapacity.builder().capacityUnits(24.0).build())
                     .unprocessedItems(Map.of("mock",
                         List.of(WriteRequest.builder()
                                     .putRequest(
@@ -477,7 +443,7 @@ public class DynamoTableTest {
         var result = table.putBatchExtended(items);
 
         // Verify
-        Assertions.assertEquals(new CapacityUsed(0.0, 49.0, 0.0, 49.0, null), result.getCapacity());
+        Assertions.assertEquals(49.0, result.getCapacity());
         Assertions.assertEquals(List.of(new MockItem("xyz", "abc", 100)), result.getUnprocessedValues());
     }
 
@@ -503,17 +469,13 @@ public class DynamoTableTest {
         var client = new MockClient(
             PutItemRequest.builder()
                 .tableName("mock")
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
                 .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
                 .build(),
             PutItemResponse.builder()
                 .attributes(Map.of("partition", av("p"), "sort", av("s"), "ival", av(5)))
-                .consumedCapacity(ConsumedCapacity.builder()
-                                      .writeCapacityUnits(3.0)
-                                      .table(Capacity.builder().writeCapacityUnits(2.0).build())
-                                      .globalSecondaryIndexes(Map.of("index", Capacity.builder().writeCapacityUnits(1.0).build()))
-                                      .build())
+                .consumedCapacity(ConsumedCapacity.builder().capacityUnits(3.0).build())
                 .build());
         var table = new MockTable(client, null, "mock");
 
@@ -522,10 +484,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(new MockItem("p", "s", 5), response.getItem());
-        Assertions.assertEquals(
-            new CapacityUsed(0.0, 3.0, 0.0, 2.0,
-                Map.of("index", new CapacityUsed.ReadWrite(0.0, 1.0))),
-            response.getCapacity());
+        Assertions.assertEquals(3.0, response.getCapacity());
     }
 
     @Test
@@ -534,7 +493,7 @@ public class DynamoTableTest {
         var client = new MockClient(
             PutItemRequest.builder()
                 .tableName("mock")
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
                 .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
                 .conditionExpression("attribute_not_exists(#partition)")
@@ -605,21 +564,17 @@ public class DynamoTableTest {
             List.of(
                 BatchWriteItemRequest.builder()
                     .requestItems(Map.of("mock", maps.subList(0, 25)))
-                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 BatchWriteItemRequest.builder()
                     .requestItems(Map.of("mock", maps.subList(25, 49)))
-                    .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                    .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build()),
             List.of(
                 BatchWriteItemResponse.builder().consumedCapacity(
-                    ConsumedCapacity.builder()
-                        .writeCapacityUnits(25.0)
-                        .table(Capacity.builder().writeCapacityUnits(25.0).build()).build()).build(),
+                    ConsumedCapacity.builder().capacityUnits(25.0).build()).build(),
                 BatchWriteItemResponse.builder().consumedCapacity(
-                    ConsumedCapacity.builder()
-                        .writeCapacityUnits(24.0)
-                        .table(Capacity.builder().writeCapacityUnits(24.0).build()).build())
+                    ConsumedCapacity.builder().capacityUnits(24.0).build())
                     .unprocessedItems(Map.of("mock",
                         List.of(WriteRequest.builder()
                                     .putRequest(
@@ -634,7 +589,7 @@ public class DynamoTableTest {
         var result = table.putBatchExtendedAsync(items).join();
 
         // Verify
-        Assertions.assertEquals(new CapacityUsed(0.0, 49.0, 0.0, 49.0, null), result.getCapacity());
+        Assertions.assertEquals(49.0, result.getCapacity());
         Assertions.assertEquals(List.of(new MockItem("xyz", "abc", 100)), result.getUnprocessedValues());
     }
 
@@ -660,15 +615,12 @@ public class DynamoTableTest {
             DeleteItemRequest.builder()
                 .tableName("mock")
                 .key(Map.of("partition", av("p"), "sort", av("s")))
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
                 .build(),
             DeleteItemResponse.builder()
                 .attributes(Map.of("partition", av("p"), "sort", av("s"), "ival", av(15)))
-                .consumedCapacity(ConsumedCapacity.builder()
-                                      .writeCapacityUnits(1.0)
-                                      .table(Capacity.builder().writeCapacityUnits(1.0).build())
-                                      .build())
+                .consumedCapacity(ConsumedCapacity.builder().capacityUnits(1.0).build())
                 .build());
         var table = new MockTable(client, null, "mock");
 
@@ -677,7 +629,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(new MockItem("p", "s", 15), result.getItem());
-        Assertions.assertEquals(new CapacityUsed(0.0, 1.0, 0.0, 1.0, null), result.getCapacity());
+        Assertions.assertEquals(1.0, result.getCapacity());
     }
 
     @Test
@@ -764,7 +716,7 @@ public class DynamoTableTest {
                     .build()),
             List.of(
                 BatchWriteItemResponse.builder()
-                    .consumedCapacity(ConsumedCapacity.builder().writeCapacityUnits(25.0).table(Capacity.builder().writeCapacityUnits(25.0).build()).build())
+                    .consumedCapacity(ConsumedCapacity.builder().capacityUnits(25.0).build())
                     .unprocessedItems(Map.of("mock", List.of(
                         WriteRequest.builder()
                             .deleteRequest(DeleteRequest.builder()
@@ -773,7 +725,7 @@ public class DynamoTableTest {
                             .build())))
                     .build(),
                 BatchWriteItemResponse.builder()
-                    .consumedCapacity(ConsumedCapacity.builder().writeCapacityUnits(23.0).table(Capacity.builder().writeCapacityUnits(23.0).build()).build())
+                    .consumedCapacity(ConsumedCapacity.builder().capacityUnits(23.0).build())
                     .unprocessedItems(Map.of("mock", List.of(
                         WriteRequest.builder()
                             .deleteRequest(DeleteRequest.builder()
@@ -787,7 +739,7 @@ public class DynamoTableTest {
         var result = table.deleteBatchByItemExtended(items);
 
         // Verify
-        Assertions.assertEquals(new CapacityUsed(0.0, 48.0, 0.0, 48.0, null), result.getCapacity());
+        Assertions.assertEquals(48.0, result.getCapacity());
         Assertions.assertEquals(List.of(new Key<>("aaa", "bbb"), new Key<>("ccc", "ddd")),
             result.getUnprocessedValues());
     }
@@ -814,15 +766,12 @@ public class DynamoTableTest {
             DeleteItemRequest.builder()
                 .tableName("mock")
                 .key(Map.of("partition", av("p"), "sort", av("s")))
-                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
                 .build(),
             DeleteItemResponse.builder()
                 .attributes(Map.of("partition", av("p"), "sort", av("s"), "ival", av(15)))
-                .consumedCapacity(ConsumedCapacity.builder()
-                                      .writeCapacityUnits(1.0)
-                                      .table(Capacity.builder().writeCapacityUnits(1.0).build())
-                                      .build())
+                .consumedCapacity(ConsumedCapacity.builder().capacityUnits(1.0).build())
                 .build());
         var table = new MockTable(client, null, "mock");
 
@@ -831,7 +780,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(new MockItem("p", "s", 15), result.getItem());
-        Assertions.assertEquals(new CapacityUsed(0.0, 1.0, 0.0, 1.0, null), result.getCapacity());
+        Assertions.assertEquals(1.0, result.getCapacity());
     }
 
     @Test
@@ -887,7 +836,7 @@ public class DynamoTableTest {
                     .build()),
             List.of(
                 BatchWriteItemResponse.builder()
-                    .consumedCapacity(ConsumedCapacity.builder().writeCapacityUnits(25.0).table(Capacity.builder().writeCapacityUnits(25.0).build()).build())
+                    .consumedCapacity(ConsumedCapacity.builder().capacityUnits(25.0).build())
                     .unprocessedItems(Map.of("mock", List.of(
                         WriteRequest.builder()
                             .deleteRequest(DeleteRequest.builder()
@@ -896,7 +845,7 @@ public class DynamoTableTest {
                             .build())))
                     .build(),
                 BatchWriteItemResponse.builder()
-                    .consumedCapacity(ConsumedCapacity.builder().writeCapacityUnits(23.0).table(Capacity.builder().writeCapacityUnits(23.0).build()).build())
+                    .consumedCapacity(ConsumedCapacity.builder().capacityUnits(23.0).build())
                     .unprocessedItems(Map.of("mock", List.of(
                         WriteRequest.builder()
                             .deleteRequest(DeleteRequest.builder()
@@ -910,7 +859,7 @@ public class DynamoTableTest {
         var result = table.deleteBatchByItemExtendedAsync(items).join();
 
         // Verify
-        Assertions.assertEquals(new CapacityUsed(0.0, 48.0, 0.0, 48.0, null), result.getCapacity());
+        Assertions.assertEquals(48.0, result.getCapacity());
         Assertions.assertEquals(List.of(new Key<>("aaa", "bbb"), new Key<>("ccc", "ddd")),
             result.getUnprocessedValues());
     }

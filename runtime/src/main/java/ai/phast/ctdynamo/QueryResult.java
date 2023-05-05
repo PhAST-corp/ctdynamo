@@ -62,12 +62,12 @@ class QueryResult<T> extends PagedResult<T, QueryResponse> {
         }
         var request = queryBuilder.build();
         return getIndex().getClient() == null
-               ? getIndex().getAsyncClient().query(request).join()
-               : getIndex().getClient().query(request);
+            ? getIndex().getAsyncClient().query(request).join()
+            : getIndex().getClient().query(request);
     }
 
     @Override
-    int getScannedCount(QueryResponse response) {
+    int getNumItemsRead(QueryResponse response) {
         return response.scannedCount() == null ? 0 : response.scannedCount();
     }
 

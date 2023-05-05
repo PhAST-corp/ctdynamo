@@ -104,6 +104,7 @@ abstract class PagedResult<T, ResponseT> extends IterableResult<T> {
      * @param numRead The numbers of items read in the previous page
      * @param numFound The number of items found (passing the filter) in the previous page
      * @return The number of items to request in the next page
+     * @throws RuntimeException xxx
      */
     private int computeNextPageSize(int numRead, int numFound) {
         var numItemsRead = getNumItemsRead();
@@ -198,12 +199,11 @@ abstract class PagedResult<T, ResponseT> extends IterableResult<T> {
                 lastItemScanned = items.get(numItems - 1);
                 items = items.subList(0, numItems);
             }
-            var numRead = getScannedCount(response);
-
+            var numRead = getNumItemsRead(response);
             // Update counters with data from the new request
             addNumItemsRead(numRead);
             addNumItemsReturned(numItems);
-            getCapacity().add(getRawCapacity(response));
+            updateCapacity(getRawCapacity(response));
 
             nextPageSize = (lastItemScanned == null ? 0 : computeNextPageSize(numRead, numItems));
             currentPageIterator = items.iterator();
@@ -224,11 +224,12 @@ abstract class PagedResult<T, ResponseT> extends IterableResult<T> {
     }
 
     /**
-     * Extract the number of items scanned from the response.
+     * Extract the number of items read from the response. This is the total read, including items that didn't pass
+     * the filter and were not returned
      * @param response The response object from a query or scan
      * @return The number of items scanned
      */
-    abstract int getScannedCount(ResponseT response);
+    abstract int getNumItemsRead(ResponseT response);
 
     /**
      * Get the dynamodb capacity object from the response
