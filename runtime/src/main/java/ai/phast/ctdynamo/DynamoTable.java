@@ -1113,7 +1113,9 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         for (var entry : expressions.entrySet()) {
             var key = entry.getKey();
             var value = entry.getValue();
-            if (!value.equals(UPDATE_IGNORE_ATTRIBUTE)) {
+            if (value.equals(UPDATE_IGNORE_ATTRIBUTE)) {
+                values.remove(":" + key);
+            } else {
                 var nameRef = '#' + key;
                 attributeNames.put(nameRef, key);
                 if (value.equals(UPDATE_REMOVE_ATTRIBUTE)) {
@@ -1143,6 +1145,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                                  .returnValues(returnPrevious ? ReturnValue.ALL_OLD : ReturnValue.ALL_NEW)
                                  .tableName(getTableName())
                                  .key(keysToMap(partitionValue, sortValue));
+
         if (condition != null) {
             if (condition.getValues() != null) {
                 values.putAll(condition.getValues());

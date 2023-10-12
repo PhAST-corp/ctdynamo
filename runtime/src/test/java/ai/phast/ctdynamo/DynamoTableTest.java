@@ -20,6 +20,8 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import java.util.ArrayList;
@@ -321,6 +323,56 @@ public class DynamoTableTest {
 
         // Act
         table.putItem(new MockItem("p", "s", 10));
+
+        // No verify step, was verified by the MockClient
+    }
+
+    @Test
+    public void testUpdateItem_shouldSubmitRequestToDynamo_whenCalled() {
+        // Setup
+        var client = new MockClient(UpdateItemRequest.builder()
+                .tableName("mock").key(
+                        Map.of("partition", AttributeValue.builder().s("p").build(),
+                                "sort", AttributeValue.builder().s("s").build())
+                )
+                .returnValues(ReturnValue.ALL_NEW)
+                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .updateExpression("SET #ival = :ival")
+                .expressionAttributeNames(Map.of("#ival", "ival"))
+                .expressionAttributeValues(Map.of(":ival", AttributeValue.builder().n("123").build()))
+                .build(),
+                UpdateItemResponse.builder().build());
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        table.updateItem(new MockItem("p", "s", 123), null,
+                null, null,
+                null, false);
+
+        // No verify step, was verified by the MockClient
+    }
+
+    @Test
+    public void testUpdateItem_shouldNotDefineKey_whenIgnoreAttributePresent() {
+        // Setup
+        var client = new MockClient(UpdateItemRequest.builder()
+                .tableName("mock").key(
+                        Map.of("partition", AttributeValue.builder().s("p").build(),
+                        "sort", AttributeValue.builder().s("s").build())
+                )
+                .returnValues(ReturnValue.ALL_NEW)
+                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                .updateExpression("")
+                .expressionAttributeNames(Map.of())
+                .expressionAttributeValues(Map.of())
+                .build(),
+                UpdateItemResponse.builder().build());
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        table.updateItem(new MockItem("p", "s", 123), null,
+                Map.of("ival", DynamoTable.UPDATE_IGNORE_ATTRIBUTE), null,
+                null, false);
 
         // No verify step, was verified by the MockClient
     }
