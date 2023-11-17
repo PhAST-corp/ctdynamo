@@ -75,7 +75,7 @@ func returns [ AttributeValue value ]
   | 'attribute_type' '(' dot ')' { ExpressionEvaluator.unsupported("attribute_type"); }
   | 'contains' '(' dotVal=dot ',' andOrVal=andOr ')' { $value = ExpressionEvaluator.contains($dotVal.value, $andOrVal.value); }
   | 'begins_with' '(' andOrVal=andOr ',' andOrVal2=andOr ')' { $value = ExpressionEvaluator.beginsWith($andOrVal.value, $andOrVal2.value); }
-  | 'size' '(' andOr ')' { ExpressionEvaluator.unsupported("size"); }
+  | 'size' '(' andOrVal=andOr ')' { $value = ExpressionEvaluator.size($andOrVal.value); }
   | 'if_not_exists' '(' atomVal=atom ',' andOrVal=andOr ')' { $value = ($atomVal.value == null ? $andOrVal.value : $atomVal.value); }
   | 'list_append' '(' andOrVal=andOr ',' andOrVal2=andOr ')' { $value = ExpressionEvaluator.listAppend($andOrVal.value, $andOrVal2.value); }
   | dotVal=dot { $value = $dotVal.value; }

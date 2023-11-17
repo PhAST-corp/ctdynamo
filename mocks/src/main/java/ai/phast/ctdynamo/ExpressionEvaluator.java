@@ -207,6 +207,20 @@ public class ExpressionEvaluator extends DynamoBaseListener {
     }
 
     /**
+     * Compute the dynamo size() function
+     * @param list The list to compute the size of
+     * @return The size of the list as an attribute value
+     * @throws RuntimeException If the given attribute value is a non-list
+     */
+    static AttributeValue size(AttributeValue list) {
+        if (!list.hasL()) {
+            throw new RuntimeException("No list in given value: " + list);
+        }
+
+        return AttributeValue.builder().n(String.valueOf(list.l().size())).build();
+    }
+
+    /**
      * Compute the dynamo contains() function
      * @param str The string to check
      * @param searchFor The string to search for

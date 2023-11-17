@@ -185,6 +185,23 @@ public class ExpressionEvaluatorTest {
         assert !startsWithDog;
     }
 
+    @Test
+    public void testKeyExpression_shouldComputeSize_whenProvidedList() {
+        // Setup
+        var expr = new ConditionExpression("size(#v)",
+                Map.of(),
+                Map.of("#v", "v"));
+
+        // Act
+        var atrList = AttributeValue.builder()
+                .l(av("the"), av("lazy"), av("brown"), av("dog"))
+                .build();
+        var evaluatedSize = ExpressionEvaluator.eval(expr, Map.of("v", atrList));
+
+        // Verify
+        Assertions.assertEquals(evaluatedSize.n(), "4");
+    }
+
     private AttributeValue av(String value) {
         return AttributeValue.builder().s(value).build();
     }
