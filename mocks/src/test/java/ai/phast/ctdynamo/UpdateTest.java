@@ -69,6 +69,22 @@ public class UpdateTest {
     }
 
     @Test
+    public void testUpdate_shouldHandleMultipleUpdateTypes_whenRequested() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(NoSortKeyDynamoTable.class,
+            new NoSortKey("x", 1, 2, Instant.ofEpochMilli(100000)));
+
+        // Act
+        var result = table.updateItem("x", null, null,
+            Map.of("when", DynamoTable.UPDATE_REMOVE_ATTRIBUTE, "i1p", ":i1p"),
+            Map.of(":i1p", av(3)),null, false);
+
+        // Verify
+        DynamoMockUtil.verifyContainsExactly(table, new NoSortKey("x", 3, 2, null));
+        Assertions.assertEquals(new NoSortKey("x", 3, 2, null), result.getItem());
+    }
+
+    @Test
     public void testListAppend_shouldAppend_whenExpressionProvided() {
         // Setup
         var prevItem = new ArrayOuterItem();

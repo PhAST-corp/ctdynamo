@@ -7,8 +7,10 @@ grammar Dynamo;
 
 expression returns [ AttributeValue value ] : body=andOr EOF { $value = $body.value; } ;
 
-update : update updatePart EOF
-  | updatePart EOF
+update : updateSequence EOF ;
+
+updateSequence: updateSequence updatePart
+  | updatePart
   ;
 
 updatePart: 'SET' setTerms

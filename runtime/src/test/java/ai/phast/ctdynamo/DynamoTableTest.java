@@ -364,7 +364,6 @@ public class DynamoTableTest {
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .updateExpression("")
                 .expressionAttributeNames(Map.of())
-                .expressionAttributeValues(Map.of())
                 .build(),
                 UpdateItemResponse.builder().build());
         var table = new MockTable(client, null, "mock");
@@ -372,6 +371,30 @@ public class DynamoTableTest {
         // Act
         table.updateItem(new MockItem("p", "s", 123), null,
                 Map.of("ival", DynamoTable.UPDATE_IGNORE_ATTRIBUTE), null,
+                null, false);
+
+        // No verify step, was verified by the MockClient
+    }
+
+    @Test
+    public void testUpdateItem_shouldNotIncludeAttributeValues_whenNoneGiven() {
+        // Setup
+        var client = new MockClient(UpdateItemRequest
+                .builder()
+                .tableName("mock")
+                .key(Map.of("partition", AttributeValue.builder().s("p").build(),
+                        "sort", AttributeValue.builder().s("s").build()))
+                .returnValues(ReturnValue.ALL_NEW)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+                .updateExpression(" REMOVE #ival")
+                .expressionAttributeNames(Map.of("#ival", "ival"))
+                .build(),
+                UpdateItemResponse.builder().build());
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        table.updateItem("p", "s", null,
+                Map.of("ival", DynamoTable.UPDATE_REMOVE_ATTRIBUTE), null,
                 null, false);
 
         // No verify step, was verified by the MockClient

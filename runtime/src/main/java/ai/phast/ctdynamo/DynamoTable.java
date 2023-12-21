@@ -1157,7 +1157,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         }
         requestBuilder.updateExpression(expression.toString())
             .expressionAttributeNames(attributeNames)
-            .expressionAttributeValues(values);
+            .expressionAttributeValues(values.isEmpty() ? null : values);
         return requestBuilder.build();
     }
 
