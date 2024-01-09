@@ -60,6 +60,14 @@ class AttributeComparator implements Comparator<AttributeValue> {
                 return Long.compare(Long.parseLong(text1), Long.parseLong(text2));
             }
         }
+
+        var bool1 = value1.bool();
+        if (bool1 != null) {
+            // It's a boolean. Just compare to the other attribute value
+            var bool2 = Objects.requireNonNull(value2.bool(), "Cannot compare: " + value1 + " vs. " + value2);
+            return Boolean.compare(bool1, bool2);
+        }
+
         throw new IllegalArgumentException("Cannot compare: " + value1 + " vs. " + value2);
     }
 }

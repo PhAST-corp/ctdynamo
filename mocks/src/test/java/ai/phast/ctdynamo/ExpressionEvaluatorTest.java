@@ -138,6 +138,22 @@ public class ExpressionEvaluatorTest {
     }
 
     @Test
+    public void testKeyExpression_shouldCompareBoolsProperly_whenCalledWithBools() {
+        // Setup
+        var expr = new ConditionExpression("#p = :p",
+            Map.of(":p", AttributeValue.builder().bool(true).build()),
+            Map.of("#p", "p"));
+
+        // Act
+        var equal = ExpressionEvaluator.evalBool(expr, Map.of("p", AttributeValue.builder().bool(true).build()));
+        var notEqual = ExpressionEvaluator.evalBool(expr, Map.of("p", AttributeValue.builder().bool(false).build()));
+
+        // Verify
+        assert equal;
+        assert !notEqual;
+    }
+
+    @Test
     public void testKeyExpression_shouldComputeNotEqual_whenExpressionAlone() {
         // Setup
         var expr = new ConditionExpression("#v <> :v",
