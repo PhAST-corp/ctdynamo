@@ -258,6 +258,19 @@ public final class Query<T, PartitionT, SortT> extends BaseQueryScan<T, DynamoIn
     }
 
     /**
+     * Clears any sort value previously set on this query.
+     * If this is called, the query will be returning the entire partition (unless there is a condition expression).
+     * @return This query
+     */
+    public Query<T, PartitionT, SortT> clearSort() {
+        sort1 = null;
+        sort2 = null;
+        keyExpression = null;
+
+        return this;
+    }
+
+    /**
      * Build a sort key relational expression
      * @param operator The relational operator to use
      * @return A string for the required expression

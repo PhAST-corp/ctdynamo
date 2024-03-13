@@ -72,6 +72,30 @@ public class QueryTest {
     }
 
     @Test
+    public void testQuery_shouldBuildKeyQuery_whenClearingSortBounds() {
+        // Setup
+        var client = new MockClient(
+                QueryRequest.builder()
+                        .tableName("mock")
+                        .scanIndexForward(true)
+                        .keyConditionExpression("#partition = :ctdynamo_p")
+                        .expressionAttributeNames(Map.of("#partition", "partition"))
+                        .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                        .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+                        .build(),
+                QueryResponse.builder().build());
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        var result = table.query("p").sortGreaterThan("x").clearSort().invoke();
+
+        // Verify
+        Assertions.assertEquals(List.of(), result.stream().collect(Collectors.toList()));
+        Assertions.assertNull(result.getExclusiveStartKey());
+        client.assertDone();
+    }
+
+    @Test
     public void testQuery_shouldBuildKeyQuery_whenUpperAndLowerSortBound() {
         // Setup
         var client = new MockClient(
