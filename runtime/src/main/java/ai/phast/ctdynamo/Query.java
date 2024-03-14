@@ -4,6 +4,8 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 
+import java.util.HashMap;
+
 /**
  * Build an execute a query. This looks and acts like a builder, except that when you are done instead of calling
  * build() and getting the full object, you call invoke() and get the results of the query
@@ -311,6 +313,9 @@ public final class Query<T, PartitionT, SortT> extends BaseQueryScan<T, DynamoIn
             .consistentRead(isConsistentRead())
             .filterExpression(getFilterExpression())
             .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
+        // Copy the values and attributes map so we don't modify the query object, in case it will be reused
+        var valuesCopy = new HashMap<>(getValues());
+        var attributesCopy = new HashMap<>(getAttributeNames());
         var indexName = index.getIndexName();
         if (indexName != null) {
             builder.indexName(indexName).select(Select.ALL_ATTRIBUTES);
@@ -321,18 +326,18 @@ public final class Query<T, PartitionT, SortT> extends BaseQueryScan<T, DynamoIn
         } else {
             builder.keyConditionExpression(keyExpression);
             var sortAttribute = index.getSortKeyAttribute();
-            getAttributeNames().put("#" + sortAttribute, sortAttribute);
-            getValues().put(":ctdynamo_s1", index.sortValueToAttributeValue(sort1));
+            attributesCopy.put("#" + sortAttribute, sortAttribute);
+            valuesCopy.put(":ctdynamo_s1", index.sortValueToAttributeValue(sort1));
             if (sort2 != null) {
-                getValues().put(":ctdynamo_s2", index.sortValueToAttributeValue(sort2));
+                valuesCopy.put(":ctdynamo_s2", index.sortValueToAttributeValue(sort2));
             }
         }
         builder.scanIndexForward(scanForward);
         if (getExclusiveStartKey() != null) {
             builder.exclusiveStartKey(getExclusiveStartKey());
         }
-        builder.expressionAttributeValues(getValues())
-            .expressionAttributeNames(getAttributeNames());
+        builder.expressionAttributeValues(valuesCopy)
+            .expressionAttributeNames(attributesCopy);
         return new QueryResult<>(index, builder, getLimit(), isAsync(), getReadLimit(),
             getPageSize(), getFilterExpression() != null);
     }
