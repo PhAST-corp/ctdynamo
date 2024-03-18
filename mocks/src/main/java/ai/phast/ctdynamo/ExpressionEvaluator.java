@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 /**
  * Evaluates a dynamo expression
@@ -222,22 +223,36 @@ public class ExpressionEvaluator extends DynamoBaseListener {
 
     /**
      * Compute the dynamo contains() function
-     * @param str The string to check
-     * @param searchFor The string to search for
-     * @return AttributeValue true if str contains searchFor
+     * @param value The element to search
+     * @param searchFor The element to search for
+     * @return AttributeValue true if value is a string contains searchFor or if value is a list that contains searchFor
      * @throws RuntimeException If either str or searchFor are non-string values
      */
-    static AttributeValue contains(AttributeValue str, AttributeValue searchFor) {
-        if (str.nul() == Boolean.TRUE) {
+    static AttributeValue contains(AttributeValue value, AttributeValue searchFor) {
+        if (value == null) {
+            // Element does not exist. Return null, which will throw when the result is used. Can't throw now because
+            // we may be on the unused side of an and/or operator
+            return null;
+        }
+        if (value.nul() == Boolean.TRUE) {
             return AttributeValue.builder().bool(false).build(); // Null contains nothing
         }
-        if (str.s() == null) {
-            throw new RuntimeException("Non-string value as first parameter in contains()");
+        if (value.s() != null) {
+            if (searchFor.s() == null) {
+                Logger.getLogger(ExpressionEvaluator.class.getName()).warning(
+                    "Non-string value as second parameter in contains(string, *). Null pointer exception will be "
+                    + "triggered if result is evaluated");
+                return null;
+            }
+            return AttributeValue.builder().bool(value.s().contains(searchFor.s())).build();
+        } else if (value.l() != null) {
+            return AttributeValue.builder().bool(value.l().contains(searchFor)).build();
+        } else {
+            Logger.getLogger(ExpressionEvaluator.class.getName()).warning(
+                "Non-string, non-list value as first parameter in contains(). Null pointer exception will be "
+                    + "triggered if result is evaluated");
+            return null;
         }
-        if (searchFor.s() == null) {
-            throw new RuntimeException("Non-string value as second parameter is contains()");
-        }
-        return AttributeValue.builder().bool(str.s().contains(searchFor.s())).build();
     }
 
     /**
@@ -275,7 +290,12 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      * @return The boolean component
      * @throws RuntimeException If the attribute value is not a boolean
      */
-    static boolean unpackBool(AttributeValue value) {
+    static Boolean unpackBool(AttributeValue value) {
+        if (value == null) {
+            // Returns a null, which is to say an invalid boolean. Can't throw here in case we are evaluating the
+            // unused side of an and/or expression
+            return null;
+        }
         var bool = value.bool();
         if (bool == null) {
             throw new RuntimeException("Expected a boolean AttributeValue, got: " + value);

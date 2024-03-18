@@ -218,6 +218,69 @@ public class ExpressionEvaluatorTest {
         Assertions.assertEquals(evaluatedSize.n(), "4");
     }
 
+    @Test
+    public void testAndOr_shouldNotThrow_whenInvalidParameterIsUnused() {
+        // Setup
+        var expr = new ConditionExpression(":a AND #b",
+            Map.of(":a", AttributeValue.builder().bool(false).build()),
+            Map.of("#b", "b"));
+
+        // Act
+        var result = ExpressionEvaluator.eval(expr, Map.of());  // No "b" in map
+
+        // Verify
+        Assertions.assertFalse(result.bool());
+    }
+
+    @Test
+    public void testAndOr_shouldThrow_whenInvalidParameterIsUsed() {
+        // Setup
+        var expr = new ConditionExpression(":a AND #b",
+            Map.of(":a", AttributeValue.builder().bool(true).build()),
+            Map.of("#b", "b"));
+
+        // Act & Verify
+        Assertions.assertThrows(NullPointerException.class, () -> ExpressionEvaluator.eval(expr, Map.of()));
+    }
+
+    @Test
+    public void testContains_shouldReturnTrue_whenListContainsElement() {
+        // Setup
+        var value = AttributeValue.builder()
+            .m(Map.of("a", av("this is a"), "b", av(5)))
+            .build();
+        var expr = new ConditionExpression("contains(#list, :value)",
+                                            Map.of(":value", value),
+            Map.of("#list","list"));
+
+        // Act
+        var result = ExpressionEvaluator.eval(
+            expr,
+            Map.of("list", AttributeValue.builder().l(av("irrelevant"), value, av(100)).build()));
+
+        // Verify
+        Assertions.assertTrue(result.bool());
+    }
+
+    @Test
+    public void testContains_shouldReturnFalse_whenListDoesntContainElement() {
+        // Setup
+        var value = AttributeValue.builder()
+            .m(Map.of("a", av("this is a"), "b", av(5)))
+            .build();
+        var expr = new ConditionExpression("contains(#list, :value)",
+            Map.of(":value", value),
+            Map.of("#list","list"));
+
+        // Act
+        var result = ExpressionEvaluator.eval(
+            expr,
+            Map.of("list", AttributeValue.builder().l(av("irrelevant"), av(100)).build()));
+
+        // Verify
+        Assertions.assertFalse(result.bool());
+    }
+
     private AttributeValue av(String value) {
         return AttributeValue.builder().s(value).build();
     }

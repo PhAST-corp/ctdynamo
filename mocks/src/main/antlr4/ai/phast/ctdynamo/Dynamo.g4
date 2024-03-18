@@ -33,7 +33,7 @@ andOr returns [ AttributeValue value ]
   | notVal=not { $value = $notVal.value; }
   ;
 
-not returns [AttributeValue value ] : 'NOT' notVal=not { $value = ExpressionEvaluator.makeBool(!ExpressionEvaluator.unpackBool($notVal.value)); }
+not returns [AttributeValue value ] : 'NOT' notVal=not { $value = ($notVal.value == null ? null : ExpressionEvaluator.makeBool(!ExpressionEvaluator.unpackBool($notVal.value))); }
   | betweenVal=between { $value = $betweenVal.value; }
   ;
 
