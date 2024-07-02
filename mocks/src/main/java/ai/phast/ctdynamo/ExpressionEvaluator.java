@@ -245,8 +245,10 @@ public class ExpressionEvaluator extends DynamoBaseListener {
                 return null;
             }
             return AttributeValue.builder().bool(value.s().contains(searchFor.s())).build();
-        } else if (value.l() != null) {
+        } else if (value.hasL()) {
             return AttributeValue.builder().bool(value.l().contains(searchFor)).build();
+        } else if (value.hasSs()) {
+            return AttributeValue.builder().bool(value.ss().contains(searchFor.s())).build();
         } else {
             Logger.getLogger(ExpressionEvaluator.class.getName()).warning(
                 "Non-string, non-list value as first parameter in contains(). Null pointer exception will be "
