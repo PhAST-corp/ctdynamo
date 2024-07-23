@@ -11,10 +11,12 @@ import ai.phast.ctdynamo.tables.WithIndexDynamoTable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class UpdateTest {
 
@@ -85,6 +87,20 @@ public class UpdateTest {
     }
 
     @Test
+    public void testUpdate_shouldThrowConditionCheckFailedException_whenItemDoesNotExistAndConditionExpressionGiven() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(NoSortKeyDynamoTable.class);
+
+        // Act & Verify
+        Assertions.assertThrows(ConditionalCheckFailedException.class,
+            () -> table.updateItem("x", null, new ConditionExpression(
+            "#ip1 = :ip1 AND contains(:validIP2, #ip2)",
+                    Map.of(":ip1", av(1), ":validIP2", av(List.of("1", "2"))),
+                    Map.of("#ip1", "ip1", "#ip2", "ip2")),
+                Map.of("ip1", ":ip1"), Map.of(":ip1", av(1)), null, false));
+    }
+
+    @Test
     public void testListAppend_shouldAppend_whenExpressionProvided() {
         // Setup
         var prevItem = new ArrayOuterItem();
@@ -114,5 +130,10 @@ public class UpdateTest {
 
     private AttributeValue av(int value) {
         return AttributeValue.builder().n(Integer.toString(value)).build();
+    }
+
+    private AttributeValue av(List<String> values) {
+        return AttributeValue.builder().l(values.stream()
+            .map(v -> AttributeValue.builder().n(v).build()).collect(Collectors.toList())).build();
     }
 }

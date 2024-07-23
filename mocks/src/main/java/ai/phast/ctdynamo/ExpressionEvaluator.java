@@ -234,6 +234,9 @@ public class ExpressionEvaluator extends DynamoBaseListener {
             // we may be on the unused side of an and/or operator
             return null;
         }
+        if (searchFor == null) {
+            return AttributeValue.builder().bool(false).build(); // Value will never contain Java null
+        }
         if (value.nul() == Boolean.TRUE) {
             return AttributeValue.builder().bool(false).build(); // Null contains nothing
         }
@@ -312,6 +315,22 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      */
     static void unsupported(String operation) {
         throw new UnsupportedOperationException("Not implemented yet: \"" + operation + "\"");
+    }
+
+    /**
+     * Compares equality of two attribute values. Replaces null with null attribute values.
+     * @param a1 The first attribute value.
+     * @param a2 The second attribute value.
+     * @return True if the attribute values are equal, False if not.
+     */
+    static boolean attributeEquals(AttributeValue a1, AttributeValue a2) {
+        if (a1 == null) {
+            a1 = DynamoCodec.NULL_ATTRIBUTE_VALUE;
+        }
+        if (a2 == null) {
+            a2 = DynamoCodec.NULL_ATTRIBUTE_VALUE;
+        }
+        return a1.equals(a2);
     }
 
     /**

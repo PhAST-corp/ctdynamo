@@ -51,8 +51,8 @@ tuple returns [ List<AttributeValue> values ]
   ;
 
 compare returns [ AttributeValue value ]
-  : left=addSub '=' right=addSub { $value = ExpressionEvaluator.makeBool(AttributeComparator.INSTANCE.compare($left.value, $right.value) == 0); }
-  | left=addSub '<>' right=addSub { $value = ExpressionEvaluator.makeBool(AttributeComparator.INSTANCE.compare($left.value, $right.value) != 0); }
+  : left=addSub '=' right=addSub { $value = ExpressionEvaluator.makeBool(ExpressionEvaluator.attributeEquals($left.value, $right.value)); }
+  | left=addSub '<>' right=addSub { $value = ExpressionEvaluator.makeBool(!ExpressionEvaluator.attributeEquals($left.value, $right.value)); }
   | left=addSub '<' right=addSub { $value = ExpressionEvaluator.makeBool(AttributeComparator.INSTANCE.compare($left.value, $right.value) < 0); }
   | left=addSub '<=' right=addSub { $value = ExpressionEvaluator.makeBool(AttributeComparator.INSTANCE.compare($left.value, $right.value) <= 0); }
   | left=addSub '>' right=addSub { $value = ExpressionEvaluator.makeBool(AttributeComparator.INSTANCE.compare($left.value, $right.value) > 0); }
