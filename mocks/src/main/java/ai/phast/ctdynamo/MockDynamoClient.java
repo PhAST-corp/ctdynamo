@@ -316,6 +316,8 @@ class MockDynamoClient implements DynamoDbClient {
             request.expressionAttributeValues(), request.expressionAttributeNames());
         curItem.putAll(request.key());  // The key is always kept unchanged, added if we are creating the item
         store.add(curItem);
+        children.values().forEach(child -> child.store.remove(prevItem));
+        children.values().forEach(child -> child.store.add(curItem));
         var response = UpdateItemResponse.builder();
         var returnItem = (request.returnValues() == ReturnValue.ALL_OLD ? prevItem : curItem);
         if (!returnItem.isEmpty()) {

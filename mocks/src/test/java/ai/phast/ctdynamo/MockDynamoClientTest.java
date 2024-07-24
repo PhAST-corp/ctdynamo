@@ -119,6 +119,44 @@ public class MockDynamoClientTest {
     }
 
     @Test
+    public void testIndex_shouldUpdate_whenUpdatingOldItemIndexPartitionKey() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(WithIndexDynamoTable.class,
+                new WithIndex("px", "sa", "ipx", "ipa"));
+        var index = table.getIIndex();
+        // Force index population
+        Assertions.assertEquals(List.of(new WithIndex("px", "sa", "ipx", "ipa")),
+                index.query("ipx").invoke().stream().collect(Collectors.toList()));
+
+        // Act
+        table.updateItem(new WithIndex("px", "sa", "ipy", "ipa"), null, null, null, null, false);
+
+        // Verify
+        DynamoMockUtil.verifyContainsExactly(table, new WithIndex("px", "sa", "ipy", "ipa"));
+        Assertions.assertEquals(List.of(), index.query("ipx").invoke().stream().collect(Collectors.toList()));
+        Assertions.assertEquals(List.of(new WithIndex("px", "sa", "ipy", "ipa")),
+                index.query("ipy").invoke().stream().collect(Collectors.toList()));
+    }
+
+    @Test
+    public void testIndex_shouldUpdate_whenUpdatingOldItemIndexSortKey() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(WithIndexDynamoTable.class,
+                new WithIndex("px", "sa", "ipx", "ipa"));
+        var index = table.getIIndex();
+        // Force index population
+        Assertions.assertEquals(List.of(new WithIndex("px", "sa", "ipx", "ipa")),
+                index.query("ipx").invoke().stream().collect(Collectors.toList()));
+
+        // Act
+        table.updateItem(new WithIndex("px", "sa", "ipx", "ipb"), null, null, null, null, false);
+
+        // Verify
+        DynamoMockUtil.verifyContainsExactly(table, new WithIndex("px", "sa", "ipx", "ipb"));
+        Assertions.assertEquals(List.of(new WithIndex("px", "sa", "ipx", "ipb")), index.query("ipx").invoke().stream().collect(Collectors.toList()));
+    }
+
+    @Test
     public void testIndex_shouldUpdate_whenItemAddedReplacesOldItem() {
         // Setup
         var table = DynamoMockUtil.buildMockTable(WithIndexDynamoTable.class,
