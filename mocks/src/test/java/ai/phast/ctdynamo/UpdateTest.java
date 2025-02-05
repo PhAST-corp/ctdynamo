@@ -124,6 +124,24 @@ public class UpdateTest {
         DynamoMockUtil.verifyContainsExactly(table, expectedItem);
     }
 
+    @Test
+    public void testUpdate_shouldThrowConditionalCheckFailure_whenComparingNonExistentAttributeToExistingAttribute() {
+        // Setup
+        var item = new WithIndex();
+        item.setP("Partition");
+        item.setS("Sort");
+        var table = DynamoMockUtil.buildMockTable(WithIndexDynamoTable.class, item);
+
+        // Act & Verify
+        // Existing attribute should be "greater than" null value, so this check should fail
+        Assertions.assertThrows(ConditionalCheckFailedException.class,
+                () -> table.updateItem("Partition", "Sort", new ConditionExpression(
+                                "#ip1 >= :ip1",
+                                Map.of(":ip1", av("blah")),
+                                Map.of("#ip1", "ip1")),
+                        Map.of("ip1", ":ip1"), Map.of(":ip1", av(1)), null, false));
+    }
+
     private AttributeValue av(String value) {
         return AttributeValue.builder().s(value).build();
     }

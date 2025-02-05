@@ -40,6 +40,15 @@ class AttributeComparator implements Comparator<AttributeValue> {
         } else if (value2 == HIGHEST_AV) {
             return -1;
         }
+        if (value1 == null) {
+            if (value2 == null) {
+                return 0;
+            } else if (value2.s() != null) {
+                return -1;
+            } else {
+                throw new IllegalArgumentException("Cannot compare: " + value1 + " vs. " + value2);
+            }
+        }
 
         var text1 = value1.s();
         if (text1 != null) {
