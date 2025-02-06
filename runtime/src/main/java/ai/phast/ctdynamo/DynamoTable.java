@@ -1061,21 +1061,22 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      */
     private UpdateItemRequest buildUpdateItemRequest(T item, ConditionExpression condition, Map<String, String> expressions, Map<String, AttributeValue> values,
                                                      Map<String, String> attributeNames, boolean returnPrevious) {
-        var expressionsCopy = new HashMap<String, String>();
+        var expressionsCopy = expressions == null ? new HashMap<String, String>()
+                : expressions.entrySet().stream()
+                // If we are ignoring the attribute, don't add it to the expression map.
+                .filter(entry -> !DynamoTable.UPDATE_IGNORE_ATTRIBUTE.equals(entry.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         var valuesCopy = new HashMap<String, AttributeValue>();
         var namesCopy = new HashMap<String, String>();
         for (var entry : encode(item).entrySet()) {
             var attributeName = entry.getKey();
-            if (!attributeName.equals(getPartitionKeyAttribute()) && !attributeName.equals(getSortKeyAttribute())) {
+            // Do not add the attribute to the value map if it is one of the keys,
+            // or if that attribute is specifically passed in in the expression map
+            if (!attributeName.equals(getPartitionKeyAttribute()) && !attributeName.equals(getSortKeyAttribute())
+                    && (expressions == null || !expressions.containsKey(attributeName))) {
                 var valueRef = ":" + attributeName;
                 expressionsCopy.put(attributeName, valueRef);
                 valuesCopy.put(valueRef, entry.getValue());
-            }
-        }
-        if (expressions != null) {
-            for (var entry : expressions.entrySet()) {
-                var attributeName = entry.getKey();
-                expressionsCopy.put(attributeName, entry.getValue());
             }
         }
         if (values != null) {
@@ -1113,24 +1114,20 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         for (var entry : expressions.entrySet()) {
             var key = entry.getKey();
             var value = entry.getValue();
-            if (value.equals(UPDATE_IGNORE_ATTRIBUTE)) {
-                values.remove(":" + key);
-            } else {
-                var nameRef = '#' + key;
-                attributeNames.put(nameRef, key);
-                if (value.equals(UPDATE_REMOVE_ATTRIBUTE)) {
-                    // We need to remove this value
-                    if (removals == null) {
-                        removals = new ArrayList<>();
-                    }
-                    removals.add(key);
-                } else {
-                    expression.append(prefix)
-                        .append(nameRef)
-                        .append(" = ")
-                        .append(value);
-                    prefix = ", ";
+            var nameRef = '#' + key;
+            attributeNames.put(nameRef, key);
+            if (value.equals(UPDATE_REMOVE_ATTRIBUTE)) {
+                // We need to remove this value
+                if (removals == null) {
+                    removals = new ArrayList<>();
                 }
+                removals.add(key);
+            } else {
+                expression.append(prefix)
+                    .append(nameRef)
+                    .append(" = ")
+                    .append(value);
+                prefix = ", ";
             }
         }
         if (removals != null) {

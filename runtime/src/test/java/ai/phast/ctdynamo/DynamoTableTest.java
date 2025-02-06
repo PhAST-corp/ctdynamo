@@ -401,6 +401,34 @@ public class DynamoTableTest {
     }
 
     @Test
+    public void testUpdateItem_shouldRemoveAttribute_whenRemovingFieldThatIsPopulatedByItem() {
+        // Setup
+        var client = new MockClient(UpdateItemRequest
+                .builder()
+                .tableName("mock")
+                .key(Map.of("partition", AttributeValue.builder().s("p").build(),
+                        "sort", AttributeValue.builder().s("s").build()))
+                .returnValues(ReturnValue.ALL_NEW)
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+                .updateExpression(" REMOVE #ival")
+                // There should NOT be an attribute value map defining ival, just the attribute name map
+                .expressionAttributeNames(Map.of("#ival", "ival"))
+                .build(),
+                UpdateItemResponse.builder().build());
+        var table = new MockTable(client, null, "mock");
+        // The item we are passing in has a non-null value for the field we are removing, "ival".
+        var item = new MockItem("p", "s", 123);
+
+        // Act
+        table.updateItem(item, null,
+                Map.of("ival", DynamoTable.UPDATE_REMOVE_ATTRIBUTE), null,
+                null, false);
+
+        // No verify step, was verified by the MockClient
+    }
+
+
+    @Test
     public void testPutItemExtended_shouldReturnPreviousItemAndCapacity_whenAsked() {
         // Setup
         var client = new MockClient(
