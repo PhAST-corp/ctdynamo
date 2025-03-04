@@ -168,23 +168,27 @@ public class ExpressionEvaluator extends DynamoBaseListener {
     }
 
     /**
-     * Add two attribute values. Currently only numbers are supported
+     * Add or subtract two attribute values. Currently only numbers are supported
      * @param left The left value
      * @param right The right value
+     * @param add If true, add. If false, subtract
      * @return The sum of the values
      * @throws NullPointerException If either attribute is null
      */
-    static AttributeValue add(AttributeValue left, AttributeValue right) {
+    static AttributeValue addOrSub(AttributeValue left, AttributeValue right, boolean add) {
         var leftStr = left.n();
         var rightStr = right.n();
+        var multiplier = add ? 1 : -1;
         if ((leftStr == null) || (rightStr == null)) {
-            throw new NullPointerException("Cannot compute: " + left + " + " + right);
+            throw new NullPointerException("Cannot compute: " + left + (add ? " + " : " - ") + right);
         }
         if (leftStr.indexOf('.') >= 0 || rightStr.indexOf('.') >= 0 || leftStr.indexOf('e') >= 0 || rightStr.indexOf('e') >= 0) {
             // Double precision
-            return AttributeValue.builder().n(Double.toString(Double.parseDouble(leftStr) + Double.parseDouble(rightStr))).build();
+            return AttributeValue.builder().n(Double.toString(Double.parseDouble(leftStr)
+                    + multiplier * Double.parseDouble(rightStr))).build();
         } else {
-            return AttributeValue.builder().n(Long.toString(Long.parseLong(leftStr) + Long.parseLong(rightStr))).build();
+            return AttributeValue.builder().n(Long.toString(Long.parseLong(leftStr)
+                    + multiplier * Long.parseLong(rightStr))).build();
         }
     }
 

@@ -61,8 +61,8 @@ compare returns [ AttributeValue value ]
   ;
 
 addSub returns [ AttributeValue value ]
-  : left=addSub '+' right=mulDiv { $value = ExpressionEvaluator.add($left.value, $right.value); }
-  | addSub '-' mulDiv { ExpressionEvaluator.unsupported("-"); }
+  : left=addSub '+' right=mulDiv { $value = ExpressionEvaluator.addOrSub($left.value, $right.value, true); }
+  | left=addSub '-' right=mulDiv { $value = ExpressionEvaluator.addOrSub($left.value, $right.value, false); }
   | mulDivVal = mulDiv { $value = $mulDivVal.value; }
   ;
 

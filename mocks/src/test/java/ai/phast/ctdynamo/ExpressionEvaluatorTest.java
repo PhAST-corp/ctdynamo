@@ -34,6 +34,37 @@ public class ExpressionEvaluatorTest {
     }
 
     @Test
+    public void testEvaluate_shouldAddTwoNumbers_whenCalledWithPlusSymbol() {
+        // Setup
+        var expr = new ConditionExpression("#number + :one",
+                Map.of(":one", AttributeValue.builder().n("1").build()),
+                Map.of("#number", "number"));
+
+        // Act
+        var num = AttributeValue.builder().n("1").build();
+        var evaluatedSum = ExpressionEvaluator.eval(expr, Map.of("number", num));
+
+        // Verify
+        Assertions.assertEquals(evaluatedSum.n(), "2");
+    }
+
+    @Test
+    public void testEvaluate_shouldSubtractTwoNumbers_whenCalledWithMinusSymbol() {
+        // Setup
+        var expr = new ConditionExpression("#number - :one",
+                Map.of(":one", AttributeValue.builder().n("1").build()),
+                Map.of("#number", "number"));
+
+        // Act
+        var num = AttributeValue.builder().n("1").build();
+        var evaluatedSum = ExpressionEvaluator.eval(expr, Map.of("number", num));
+
+        // Verify
+        Assertions.assertEquals(evaluatedSum.n(), "0");
+    }
+
+
+    @Test
     public void testKeyExpression_shouldComputeBetween_whenKeyExpression() {
         // Setup
         var expr = new ConditionExpression("#p = :p AND #s BETWEEN :s1 AND :s2",
