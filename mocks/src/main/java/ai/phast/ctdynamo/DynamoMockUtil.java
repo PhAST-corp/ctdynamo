@@ -102,7 +102,7 @@ public class DynamoMockUtil {
                     return null;
                 }
             };
-            var tableInstance = constructor.newInstance(dummyClient, "mock");
+            var tableInstance = constructor.newInstance(dummyClient, tableName);
             var items = (initialItems == null
                          ? null
                          : initialItems.stream().map(tableInstance::encode).collect(Collectors.toList()));

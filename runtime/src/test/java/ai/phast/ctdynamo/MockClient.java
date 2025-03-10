@@ -16,6 +16,8 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsResponse;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
@@ -114,6 +116,11 @@ public class MockClient implements DynamoDbClient {
     @Override
     public ScanResponse scan(ScanRequest scanRequest) {
         return testAndReturn(ScanResponse.class, scanRequest);
+    }
+
+    @Override
+    public TransactWriteItemsResponse transactWriteItems(TransactWriteItemsRequest request) {
+        return testAndReturn(TransactWriteItemsResponse.class, request);
     }
 
     @Override

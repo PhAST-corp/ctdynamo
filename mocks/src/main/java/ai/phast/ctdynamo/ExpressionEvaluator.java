@@ -97,7 +97,7 @@ public class ExpressionEvaluator extends DynamoBaseListener {
         if (attr == null) {
             throw new RuntimeException("Unknown attribute reference " + text);
         }
-        ctx.value = curItem.get(attr);
+        ctx.value = curItem == null ? null : curItem.get(attr);
     }
 
     /**

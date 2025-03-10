@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=0.1.4
+version=0.1.5
 
 mvn clean install || exit 1
 for module in runtime processor mocks ; do

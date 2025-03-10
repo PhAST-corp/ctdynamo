@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -17,8 +18,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -449,5 +448,81 @@ public class MockDynamoClientTest {
             () -> DynamoMockUtil.buildMockTable(
                 NoIndexDynamoTable.class,
                 new NoIndex("x", 100, true), new NoIndex("x", 100, false)));
+    }
+
+    @Test
+    public void testTransactions_shouldExecute_whenNoConflicts() {
+        // Setup
+        var table1 = DynamoMockUtil.buildMockTable(NoIndexDynamoTable.class, "table1",
+            new NoIndex("a", 10, true),
+            new NoIndex("b", 11, false));
+        var table2 = DynamoMockUtil.buildMockTable(NoIndexDynamoTable.class, "table2",
+            new NoIndex("a", 10, true));
+
+        // Act
+        var transaction = new Transaction(table1);
+        var putCheck = transaction.put(table2, new NoIndex("c", 12, false),
+            ConditionExpression.requireAbsent(table2));
+        var updateCheck = transaction.update(table1, "a", 10, null,
+            Map.of("bVal", ":false"),
+            Map.of(":false", AttributeValue.builder().bool(false).build()),
+            null);
+        var deleteCheck = transaction.delete(table2, "a", 10,
+            ConditionExpression.requirePresent(table2));
+        var checkCheck = transaction.check(table1, "b", 11,
+            new ConditionExpression("bVal = :false", Map.of(":false", AttributeValue.builder().bool(false).build()),
+                null));
+        transaction.execute();
+
+        // Verify
+        Assertions.assertNull(putCheck.getErrorType());
+        Assertions.assertNull(updateCheck.getErrorType());
+        Assertions.assertNull(deleteCheck.getErrorType());
+        Assertions.assertNull(checkCheck.getErrorType());
+        DynamoMockUtil.verifyContainsExactly(table1,
+            new NoIndex("a", 10, false),
+            new NoIndex("b", 11, false));
+        DynamoMockUtil.verifyContainsExactly(table2,
+            new NoIndex("c", 12, false));
+    }
+
+    @Test
+    public void testTransactions_shouldReportFailuresAndNotUpdate_whenConflictsPresent() {
+        // Setup
+        var table1 = DynamoMockUtil.buildMockTable(NoIndexDynamoTable.class, "table1",
+            new NoIndex("a", 10, true),
+            new NoIndex("b", 11, true));
+        var table2 = DynamoMockUtil.buildMockTable(NoIndexDynamoTable.class, "table2",
+            new NoIndex("a", 10, true),
+            new NoIndex("c", 12, true));
+
+        // Act
+        var transaction = new Transaction(table1);
+        var putCheck = transaction.put(table2, new NoIndex("c", 12, false),
+            ConditionExpression.requireAbsent(table2));
+        var updateCheck = transaction.update(table1, "a", 10, null,
+            Map.of("bVal", ":false"),
+            Map.of(":false", AttributeValue.builder().bool(false).build()),
+            null);
+        var deleteCheck = transaction.delete(table2, "a", 10,
+            ConditionExpression.requirePresent(table2));
+        var checkCheck = transaction.check(table1, "b", 11,
+            new ConditionExpression("bVal = :false", Map.of(":false", AttributeValue.builder().bool(false).build()),
+                null));
+        Assertions.assertThrows(TransactionCanceledException.class, transaction::execute);
+
+        // Verify
+        Assertions.assertEquals(Transaction.ErrorType.CONDITION_CHECK, putCheck.getErrorType());
+        Assertions.assertEquals(new NoIndex("c", 12, true), putCheck.getFailedItem());
+        Assertions.assertNull(updateCheck.getErrorType());
+        Assertions.assertNull(deleteCheck.getErrorType());
+        Assertions.assertEquals(Transaction.ErrorType.CONDITION_CHECK, checkCheck.getErrorType());
+        Assertions.assertEquals(new NoIndex("b", 11, true), checkCheck.getFailedItem());
+        DynamoMockUtil.verifyContainsExactly(table1,
+            new NoIndex("a", 10, true),
+            new NoIndex("b", 11, true));
+        DynamoMockUtil.verifyContainsExactly(table2,
+            new NoIndex("a", 10, true),
+            new NoIndex("c", 12, true));
     }
 }

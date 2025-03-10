@@ -6,6 +6,7 @@ import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
@@ -17,10 +18,15 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsResponse;
+import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -39,6 +46,25 @@ class MockDynamoClient implements DynamoDbClient {
 
     /** Recognizes the key expressions that ctDynamo generates */
     private static final Pattern KEY_EXPRESSION_OP = Pattern.compile(".*?([<>=]+) *:ctdynamo_s1.*");
+
+    /**
+     * Tables we know about. Weak references so they go away when no longer needed, although the entries stay in the
+     * table. You must synchronize on this when you access it.
+     *
+     * <p>If we built mocks using a shared Dynamo client, then we could store the table-to-client mapping there,
+     * which would be cleaner. But we have lots of unit tests that make mock tables willy-nilly and want to support
+     * that old code, so having a static unit-test-only mapping from table name to mock client seems the only real
+     * option.
+     */
+    private static final Map<String, WeakReference<MockDynamoClient>> TABLE_TO_MOCK_CLIENT = new HashMap<>();
+
+    /**
+     * We need this cancellation reason for each and every successful transaction statement, so rather than build
+     * the same thing over and over we build it once, here, then re-use it.
+     */
+    private static final CancellationReason SUCCESS_REASON = CancellationReason.builder()
+        .code("None")
+        .build();
 
     /** The name of this index, or null if this is a table */
     private final String indexName;
@@ -64,6 +90,11 @@ class MockDynamoClient implements DynamoDbClient {
         this.tableInstance = tableInstance;
         indexName = null;
         store = new InMemoryDynamoStore(tableInstance, null, items);
+        if (!tableInstance.getTableName().equals("mock")) {
+            synchronized(TABLE_TO_MOCK_CLIENT) {
+                TABLE_TO_MOCK_CLIENT.put(tableInstance.getTableName(), new WeakReference<>(this));
+            }
+        }
     }
 
     /**
@@ -309,7 +340,9 @@ class MockDynamoClient implements DynamoDbClient {
         if (request.conditionExpression() != null) {
             if (!ExpressionEvaluator.evalBool(new ConditionExpression(request.conditionExpression(),
                 request.expressionAttributeValues(), request.expressionAttributeNames()), prevItem)) {
-                throw ConditionalCheckFailedException.builder().build();
+                throw ConditionalCheckFailedException.builder()
+                          .item(prevItem)
+                          .build();
             }
         }
         var curItem = ExpressionEvaluator.update(request.updateExpression(), prevItem,
@@ -324,6 +357,150 @@ class MockDynamoClient implements DynamoDbClient {
             response.attributes(returnItem);
         }
         return response.build();
+    }
+
+    @Override
+    public TransactWriteItemsResponse transactWriteItems(TransactWriteItemsRequest request) {
+        var statements = request.transactItems();
+
+        // This is used to find all tables we must lock. The key is the table name, so if we see the same table
+        // multiple times, we'll only include it once (and only lock it once). As a tree map it will keep things
+        // ordered by the key, which gives us an ordering of tables that we must adhere to whenever we lock more
+        // than one table at a time.
+        var tableToClient = new TreeMap<String, MockDynamoClient>();
+
+        // First step: Extract everything we need to lock our tables and run our condition checks. The system where
+        // we need to check each type of statement and have identical code blocks in each to extract data is so
+        // clumsy that it makes sense to do it once, here, and pull out the data we need. When we actually execute
+        // the statements we'll have to do it again to do the actual execution, but that can't be avoided
+
+        var clientList = new ArrayList<MockDynamoClient>();
+        var conditionList = new ArrayList<ConditionExpression>();
+        var keyList = new ArrayList<Map<String, AttributeValue>>();
+        synchronized (TABLE_TO_MOCK_CLIENT) {
+            for (var statement : statements) {
+                String tableName, expression;
+                Map<String, AttributeValue> values;
+                Map<String, String> names;
+                Map<String, AttributeValue> key;
+                if (statement.put() != null) {
+                    tableName = statement.put().tableName();
+                    expression = statement.put().conditionExpression();
+                    values = statement.put().expressionAttributeValues();
+                    names = statement.put().expressionAttributeNames();
+                    key = statement.put().item();
+                } else if (statement.delete() != null) {
+                    tableName = statement.delete().tableName();
+                    expression = statement.delete().conditionExpression();
+                    values = statement.delete().expressionAttributeValues();
+                    names = statement.delete().expressionAttributeNames();
+                    key = statement.delete().key();
+                } else if (statement.update() != null) {
+                    tableName = statement.update().tableName();
+                    expression = statement.update().conditionExpression();
+                    values = statement.update().expressionAttributeValues();
+                    names = statement.update().expressionAttributeNames();
+                    key = statement.update().key();
+                } else if (statement.conditionCheck() != null) {
+                    tableName = statement.conditionCheck().tableName();
+                    expression = statement.conditionCheck().conditionExpression();
+                    values = statement.conditionCheck().expressionAttributeValues();
+                    names = statement.conditionCheck().expressionAttributeNames();
+                    key = statement.conditionCheck().key();
+                } else {
+                    throw new IllegalArgumentException("Unknown operation: " + statement);
+                }
+                var client = TABLE_TO_MOCK_CLIENT.get(tableName).get();
+                tableToClient.put(tableName, client);
+                clientList.add(client);
+                conditionList.add(expression == null ? null : new ConditionExpression(expression, values, names));
+                keyList.add(key);
+            }
+        }
+        lockAndInvokeTransaction(new ArrayList<>(tableToClient.values()), statements, clientList, conditionList,
+            keyList);
+        return TransactWriteItemsResponse.builder().build();  // Nothing useful in return value
+    }
+
+    /**
+     * Recursively lock all tables needed, then call {@link #invokeTransaction(List, List, List, List)}. This must be
+     * done recursively because Java's only way to lock on objects is to do so in a synchronized block. We will lock
+     * the unsynchronizedClients list in order, from element 0 to the last element. The list is emptied in the process
+     * @param unsynchronizedClients The mock dynamo clients that we still need to synchronize on. The head of this
+     *                              list is stripped out in each iteration until we have an empty list, then we know
+     *                              it is time to call invokeTrasnaction.
+     * @param statements The statements to execute
+     * @param clientList The mock dynamo clients that can execute the statements0
+     * @param conditionList The conditions to test for each statement
+     * @param keyList The keys to the objects referred to by each statement
+     */
+    private void lockAndInvokeTransaction(List<MockDynamoClient> unsynchronizedClients, List<TransactWriteItem> statements, List<MockDynamoClient> clientList, List<ConditionExpression> conditionList,
+                                          List<Map<String, AttributeValue>> keyList) {
+        if (unsynchronizedClients.isEmpty()) {
+            invokeTransaction(statements, clientList, conditionList, keyList);
+        } else {
+            synchronized (unsynchronizedClients.remove(0)) {
+                lockAndInvokeTransaction(unsynchronizedClients, statements, clientList, conditionList, keyList);
+            }
+        }
+    }
+
+    /**
+     * Invoke a transaction. This is called after all tables involved are already locked. First we run all condition
+     * expressions, then if they all pass, we execute the write part of the statements. The parameters are all
+     * lists, and the order is important; statement 5, for example, goes with client 5, condition 5, and key 5.
+     * @param statements The list of statements to execute
+     * @param clientList The list of mock dynamo clients that match the tables referred to by the statements
+     * @param conditionList A list of condition expressions. May be null for statements with no condition
+     * @param keyList A list of the keys for the items affected. This is used to fetch the items for the condition
+     *                evaluations
+     * @throws TransactionCanceledException If one or more condition expressions failed
+     */
+    private void invokeTransaction(List<TransactWriteItem> statements, List<MockDynamoClient> clientList, List<ConditionExpression> conditionList,
+                           List<Map<String, AttributeValue>> keyList) {
+        var cancelled = false;
+        var cancellationReasons = new ArrayList<CancellationReason>();
+        for (int i = 0; i < clientList.size(); ++i) {
+            var reason = SUCCESS_REASON;
+            var cond = conditionList.get(i);
+            if (cond != null) {
+                var client = clientList.get(i);
+                var prevItem = client.store.getItem(keyList.get(i));
+                if (!ExpressionEvaluator.evalBool(cond, prevItem)) {
+                    cancelled = true;
+                    reason = CancellationReason.builder()
+                                 .code("ConditionalCheckFailed")
+                                 .item(prevItem)
+                                 .build();
+                }
+            }
+            cancellationReasons.add(reason);
+        }
+        if (cancelled) {
+            throw TransactionCanceledException.builder()
+                      .cancellationReasons(cancellationReasons)
+                      .build();
+        }
+        for (int i = 0; i < clientList.size(); ++i) {
+            var statement = statements.get(i);
+            if (statement.put() != null) {
+                clientList.get(i).store.add(statement.put().item());
+            } else if (statement.delete() != null) {
+                clientList.get(i).store.remove(statement.delete().key());
+            } else if (statement.update() != null) {
+                // Rather than re-implement update, we copy the transaction update statement into an UpdateItemRequest,
+                // leaving out the condition (which is already evaluated), then execute the UpdateItemRequest.
+                var update = statement.update();
+                var request = UpdateItemRequest.builder().key(update.key()).updateExpression(update.updateExpression());
+                if (update.hasExpressionAttributeNames()) {
+                    request = request.expressionAttributeNames(update.expressionAttributeNames());
+                }
+                if (update.hasExpressionAttributeValues()) {
+                    request = request.expressionAttributeValues(update.expressionAttributeValues());
+                }
+                clientList.get(i).updateItem(request.build());
+            }
+        }
     }
 
     /**
