@@ -410,7 +410,10 @@ class MockDynamoClient implements DynamoDbClient {
                 } else {
                     throw new IllegalArgumentException("Unknown operation: " + statement);
                 }
-                var client = TABLE_TO_MOCK_CLIENT.get(tableName).get();
+                var client = Optional.ofNullable(TABLE_TO_MOCK_CLIENT.get(tableName))
+                    .orElseThrow(() -> new RuntimeException("Table " + tableName + " not found; known tables are "
+                        + String.join(", ", TABLE_TO_MOCK_CLIENT.keySet())))
+                    .get();
                 tableToClient.put(tableName, client);
                 clientList.add(client);
                 conditionList.add(expression == null ? null : new ConditionExpression(expression, values, names));

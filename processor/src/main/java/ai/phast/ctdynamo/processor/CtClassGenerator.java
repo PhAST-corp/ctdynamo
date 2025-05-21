@@ -113,17 +113,26 @@ public class CtClassGenerator {
      */
     private Set<TypeMirrorElementPair> avToArrayHelpersNeeded = new HashSet<>();
 
+    /** A map from index key (the DynamoDB name) to index name (used for getters and class names) */
+    private Map<String, String> indexKeyToName = new HashMap<>();
+
     /**
      * Create a new class generator
      * @param itemType The type that we need classes for
      * @param typeTools Type-related constants and functions
      * @param ignoreNulls True to ignore null attributes, false to include them in maps written to dynamo
+     * @param indexKeyToNameArray The key-to-name map, flattened into an array. This is exactly as presented in
+     *    {@see DynamoItem#indexNames()}.
      * @throws CtException If there is an error processing the class
      */
-    public CtClassGenerator(TypeElement itemType, TypeTools typeTools, boolean ignoreNulls) throws CtException {
+    public CtClassGenerator(TypeElement itemType, TypeTools typeTools, boolean ignoreNulls,
+                            String[] indexKeyToNameArray) throws CtException {
         this.itemType = itemType;
         this.ignoreNulls = ignoreNulls;
         this.typeTools = typeTools;
+        for (var i = 0; i < indexKeyToNameArray.length; i += 2) {
+            indexKeyToName.put(indexKeyToNameArray[i], indexKeyToNameArray[i + 1]);
+        }
 
         // First pass: Process all annotated elements
         for (var element : itemType.getEnclosedElements()) {
@@ -186,6 +195,13 @@ public class CtClassGenerator {
         }
 
         // Validate our indexes
+        var missingIndexes = indexKeyToName.keySet().stream()
+            .filter(key -> !indexes.containsKey(key))
+            .collect(Collectors.toList());
+        if (!missingIndexes.isEmpty()) {
+            throw new CtException("Declared index(es) are never used: " + String.join(", ", missingIndexes),
+                itemType);
+        }
         for (var indexName: indexes.keySet()) {
             indexes.get(indexName).validate(indexName);
         }
@@ -797,7 +813,7 @@ public class CtClassGenerator {
         builder.beginControlFlow("if (name.equals($S))", entry.getKey())
                 .beginControlFlow("if (((partitionClass == null) || (partitionClass == $T.class))"
                         + " && ((sortClass == null) || (sortClass == $T.class)))", partitionType, sortType)
-                .addStatement(upcaseFirst("return ($T)get", entry.getKey()) + "Index()", returnT)
+                .addStatement("return ($T)get" + indexNameToClassName(entry.getKey()) + "()", returnT)
                 .nextControlFlow("else")
                 .addStatement("throw new $T($S + partitionClass.getSimpleName() + $S + sortClass.getSimpleName())",
                         IllegalArgumentException.class, "Incorrect key types for index " + entry.getKey() + ", expected: "
@@ -829,7 +845,7 @@ public class CtClassGenerator {
             builder.addCode("case $S:\n", indexName)
                     .addStatement("expectedPartitionClass = $T.class", attributes.get(metadata.getPartitonAttribute()).boxedReturnType)
                     .addStatement("expectedSortClass = $T.class", attributes.get(metadata.getSortAttribute()).boxedReturnType)
-                    .addStatement(upcaseFirst("index = get", indexName) + "Index()")
+                    .addStatement("index = get" + indexNameToClassName(indexName) + "()")
                     .addStatement("break");
         }
         builder.addCode("default:\n")
@@ -959,6 +975,7 @@ public class CtClassGenerator {
      * @return An inner class name.
      */
     private String indexNameToClassName(String indexName) {
+        indexName = indexKeyToName.getOrDefault(indexName, indexName);
         if (Character.isDigit(indexName.charAt(0))) {
             indexName = "n" + indexName;  // Prepend a "n" so we don't start with a digit.
         }

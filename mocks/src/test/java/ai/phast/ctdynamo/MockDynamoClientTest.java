@@ -4,6 +4,7 @@ import ai.phast.ctdynamo.tables.NoIndex;
 import ai.phast.ctdynamo.tables.NoIndexDynamoTable;
 import ai.phast.ctdynamo.tables.NoSortKey;
 import ai.phast.ctdynamo.tables.NoSortKeyDynamoTable;
+import ai.phast.ctdynamo.tables.RenamedIndexDynamoTable;
 import ai.phast.ctdynamo.tables.WithIndex;
 import ai.phast.ctdynamo.tables.WithIndexDynamoTable;
 import org.junit.jupiter.api.Assertions;
@@ -524,5 +525,16 @@ public class MockDynamoClientTest {
         DynamoMockUtil.verifyContainsExactly(table2,
             new NoIndex("a", 10, true),
             new NoIndex("c", 12, true));
+    }
+
+    @Test
+    public void testRenamedIndex_shouldHaveDifferentNames_whenIndexRenamed() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(RenamedIndexDynamoTable.class);
+        var colorIndex = table.getColorIndex();
+
+        // Verify
+        Assertions.assertEquals("color5", colorIndex.getIndexName());
+        Assertions.assertEquals(colorIndex.getClass(), table.getIndex("color5", String.class, Float.class).getClass());
     }
 }

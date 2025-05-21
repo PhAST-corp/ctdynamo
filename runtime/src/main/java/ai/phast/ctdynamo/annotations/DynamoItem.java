@@ -50,6 +50,16 @@ public @interface DynamoItem {
     boolean defer() default true;
 
     /**
+     * If this is set, then it is a list of index key/index name pairs. They key is how the DynamoDB servers name the
+     * index, the name is used to determine the getter name and the class name. This is optional; if it isn't present,
+     * or the index key isn't in the list, then the index name will be the same as the index key.
+     *
+     * <p>Would be nice to make this a map but it doesn't seem possible to use maps as attribute values.
+     * @return The list of index key/index name pairs
+     */
+    String[] indexNames() default {};
+
+    /**
      * This is used internally by the processor to track which class we need to process. Do not set it when annotating
      * classes.
      * @return The original class that we need a dynamo table or codec for

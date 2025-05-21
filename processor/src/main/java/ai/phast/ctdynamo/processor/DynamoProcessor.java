@@ -72,7 +72,8 @@ public class DynamoProcessor extends AbstractProcessor {
                         // we want to work with the original class that triggered creation of the deferral.
                         element = processingEnv.getTypeUtils().asElement(deferFrom);
                     }
-                    var writer = new CtClassGenerator((TypeElement)element, typeTools, annotation.ignoreNulls());
+                    var writer = new CtClassGenerator((TypeElement)element, typeTools, annotation.ignoreNulls(),
+                        annotation.indexNames());
                     var outputs = Arrays.asList(annotation.value());
                     if (outputs.contains(DynamoItem.Output.TABLE)) {
                         writer.buildTableClass().writeTo(processingEnv.getFiler());
@@ -111,11 +112,15 @@ public class DynamoProcessor extends AbstractProcessor {
                                                          .map(v -> "$T." + v.name())
                                                          .collect(Collectors.joining(", ", "{", "}")),
                                      Arrays.stream(annotation.value()).map(v -> DynamoItem.Output.class).toArray())
+                                 .addMember("indexNames", Arrays.stream(annotation.indexNames())
+                                                         .map(v -> "$S")
+                                                         .collect(Collectors.joining(", ", "{", "}")),
+                                     (Object[]) annotation.indexNames())
                                  .build();
         var classBuilder = TypeSpec.classBuilder(element.getSimpleName() + "DynamoDefer")
                                .addAnnotation(annotationSpec)
                                .addJavadoc(CodeBlock.builder().add("This class is used internally by the ctDynamo processor. It is needed to ensure\n"
-                                                                       + "than the dynamo processor runs after annotation processors that change the\n"
+                                                                       + "that the dynamo processor runs after annotation processors that change the\n"
                                                                        + "class (such as lombok). If you are not using any class-changing annotations,\n"
                                                                        + "you can set \"defer=false\" in your DynamoItem annotations to prevent the\n"
                                                                        + "creation of classes like this").build());
