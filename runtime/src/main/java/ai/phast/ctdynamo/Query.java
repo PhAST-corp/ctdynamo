@@ -318,7 +318,7 @@ public final class Query<T, PartitionT, SortT> extends BaseQueryScan<T, DynamoIn
         var attributesCopy = new HashMap<>(getAttributeNames());
         var indexName = index.getIndexName();
         if (indexName != null) {
-            builder.indexName(indexName).select(Select.ALL_ATTRIBUTES);
+            builder.indexName(indexName).select(Select.ALL_PROJECTED_ATTRIBUTES);
         }
         if (keyExpression == null) {
             // Default, just the partition
