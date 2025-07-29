@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
@@ -476,6 +477,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                              .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
         if (expected != null) {
             putBuilder.conditionExpression(expected.getExpression())
+                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
                 .expressionAttributeNames(expected.getAttributeNames())
                 .expressionAttributeValues(expected.getValues());
         }
@@ -560,6 +562,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                              .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
         if (expected != null) {
             putBuilder.conditionExpression(expected.getExpression())
+                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
                 .expressionAttributeNames(expected.getAttributeNames())
                 .expressionAttributeValues(expected.getValues());
         }
@@ -710,7 +713,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         if (conditionExpression != null) {
             requestBuilder.conditionExpression(conditionExpression.getExpression())
                 .expressionAttributeValues(conditionExpression.getValues())
-                .expressionAttributeNames(conditionExpression.getAttributeNames());
+                .expressionAttributeNames(conditionExpression.getAttributeNames())
+                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD);
         }
         var deleteResponse = rawDeleteItem(requestBuilder.build());
         return new ExtendedItemResult<>(deleteResponse.hasAttributes() ? decode(deleteResponse.attributes())
@@ -1150,7 +1154,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
             if (condition.getAttributeNames() != null) {
                 attributeNames.putAll(condition.getAttributeNames());
             }
-            requestBuilder.conditionExpression(condition.getExpression());
+            requestBuilder.conditionExpression(condition.getExpression())
+                    .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD);
         }
         requestBuilder.updateExpression(expression.toString())
             .expressionAttributeNames(attributeNames)

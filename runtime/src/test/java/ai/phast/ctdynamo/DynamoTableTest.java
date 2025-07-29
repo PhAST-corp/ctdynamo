@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnConsumedCapacity;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
@@ -464,6 +465,7 @@ public class DynamoTableTest {
                 .returnValues(ReturnValue.ALL_OLD)
                 .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
                 .conditionExpression("attribute_not_exists(#partition)")
+                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
                 .expressionAttributeNames(Map.of("#partition", "partition"))
                 .build(),
             ConditionalCheckFailedException.builder().build());
@@ -600,6 +602,7 @@ public class DynamoTableTest {
                 .returnValues(ReturnValue.ALL_OLD)
                 .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
                 .conditionExpression("attribute_not_exists(#partition)")
+                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
                 .expressionAttributeNames(Map.of("#partition", "partition"))
                 .build(),
             ConditionalCheckFailedException.builder().build());
