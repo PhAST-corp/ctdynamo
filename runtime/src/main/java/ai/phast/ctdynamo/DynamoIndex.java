@@ -41,7 +41,7 @@ public abstract class DynamoIndex<T, PartitionT, SortT> {
      * @param tableName The name of the table
      * @param indexName The name of the index
      * @param partitionKeyAttribute The name of the partition key attribute
-     * @param sortKeyAttribute The name of the sort key attribute, or null if this is a table with no sort key
+     * @param sortKeyAttribute The name of the sort key attribute, or null if this is an index with no sort key
      * @throws NullPointerException If both client and asyncClient are null
      */
     public DynamoIndex(DynamoDbClient client, DynamoDbAsyncClient asyncClient,

@@ -296,10 +296,12 @@ public class CtClassGenerator {
             // Create the class that we return. We can't return the actual class of the index, that is a private inner
             // class, so we have to instead return the parameterized DynamoIndex class that the real index class extends.
             var indexType = typeTools.types.getDeclaredType(
-                    (TypeElement)typeTools.types.asElement(typeTools.indexMirror),    // DynamoIndex<
-                    typeTools.types.getDeclaredType(itemType),                        //     ItemType,
-                    attributes.get(metadata.getPartitonAttribute()).boxedReturnType,  //     PartitionType,
-                    attributes.get(metadata.getSortAttribute()).boxedReturnType);     //     SortType>
+                (TypeElement)typeTools.types.asElement(typeTools.indexMirror),  // DynamoIndex<
+                typeTools.types.getDeclaredType(itemType),                        //     ItemType,
+                attributes.get(metadata.getPartitonAttribute()).boxedReturnType,  //     PartitionType,
+                metadata.getSortAttribute() == null
+                    ? typeTools.voidMirror
+                    : attributes.get(metadata.getSortAttribute()).boxedReturnType);  //     SortType>
 
             classBuilder.addType(buildIndexInnerClass(indexName, indexType));
             classBuilder.addMethod(MethodSpec.methodBuilder("get" + indexNameToClassName(indexName))
@@ -327,16 +329,18 @@ public class CtClassGenerator {
         if (metadata.getPartitonAttribute() == null) {
             throw new CtException("Index " + indexName + " has no partition key", metadata.getDeclaringElement());
         }
-        if (metadata.getSortAttribute() == null) {
-            throw new CtException("Index " + indexName + " has no sort key", metadata.getDeclaringElement());
-        }
-        var constructor = MethodSpec.constructorBuilder()
+        var constructorBuilder = MethodSpec.constructorBuilder()
                 .addParameter(DynamoDbClient.class, "client")
                 .addParameter(DynamoDbAsyncClient.class, "asyncClient")
-                .addParameter(String.class, "tableName")
-                .addStatement("super(client, asyncClient, tableName, $S, $S, $S)",
-                        indexName, metadata.getPartitonAttribute(), metadata.getSortAttribute())
-                .build();
+                .addParameter(String.class, "tableName");
+        if (metadata.getSortAttribute() == null) {
+            constructorBuilder.addStatement("super(client, asyncClient, tableName, $S, $S, null)",
+                indexName, metadata.getPartitonAttribute());
+        } else {
+            constructorBuilder.addStatement("super(client, asyncClient, tableName, $S, $S, $S)",
+                indexName, metadata.getPartitonAttribute(), metadata.getSortAttribute());
+        }
+        var constructor = constructorBuilder.build();
         var classBuilder = TypeSpec.classBuilder(indexNameToClassName(indexName))
                 .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                 .superclass(ParameterizedTypeName.get(indexType))
@@ -809,7 +813,9 @@ public class CtClassGenerator {
             throw new CtException("Array cannot be partition or sort key", entry.getValue().getDeclaringElement());
         }
         var partitionType = (DeclaredType)attributes.get(entry.getValue().getPartitonAttribute()).boxedReturnType;
-        var sortType = (DeclaredType)attributes.get(entry.getValue().getSortAttribute()).boxedReturnType;
+        var sortType = (DeclaredType)(entry.getValue().getSortAttribute() == null
+            ? typeTools.voidMirror
+            : attributes.get(entry.getValue().getSortAttribute()).boxedReturnType);
         builder.beginControlFlow("if (name.equals($S))", entry.getKey())
                 .beginControlFlow("if (((partitionClass == null) || (partitionClass == $T.class))"
                         + " && ((sortClass == null) || (sortClass == $T.class)))", partitionType, sortType)
@@ -844,7 +850,9 @@ public class CtClassGenerator {
             var metadata = indexes.get(indexName);
             builder.addCode("case $S:\n", indexName)
                     .addStatement("expectedPartitionClass = $T.class", attributes.get(metadata.getPartitonAttribute()).boxedReturnType)
-                    .addStatement("expectedSortClass = $T.class", attributes.get(metadata.getSortAttribute()).boxedReturnType)
+                    .addStatement("expectedSortClass = $T.class", (metadata.getSortAttribute() == null
+                        ? typeTools.voidMirror
+                        : attributes.get(metadata.getSortAttribute()).boxedReturnType))
                     .addStatement("index = get" + indexNameToClassName(indexName) + "()")
                     .addStatement("break");
         }
