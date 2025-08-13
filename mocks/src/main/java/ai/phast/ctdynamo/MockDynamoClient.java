@@ -340,9 +340,11 @@ class MockDynamoClient implements DynamoDbClient {
         if (request.conditionExpression() != null) {
             if (!ExpressionEvaluator.evalBool(new ConditionExpression(request.conditionExpression(),
                 request.expressionAttributeValues(), request.expressionAttributeNames()), prevItem)) {
-                throw ConditionalCheckFailedException.builder()
-                          .item(prevItem)
-                          .build();
+                var ex = ConditionalCheckFailedException.builder();
+                if (!prevItem.isEmpty()) {
+                    ex.item(prevItem);
+                }
+                throw ex.build();
             }
         }
         var curItem = ExpressionEvaluator.update(request.updateExpression(), prevItem,

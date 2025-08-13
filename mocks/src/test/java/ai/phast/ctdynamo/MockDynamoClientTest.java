@@ -51,6 +51,25 @@ public class MockDynamoClientTest {
     }
 
     @Test
+    public void testUpdateItem_shouldReturnErrorWithNoItem_whenHasItemCalled() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(NoSortKeyDynamoTable.class);
+
+        // Act and validate
+        try {
+            table.updateItem("x", null, new ConditionExpression(
+                            "#ip1 = :ip1 AND contains(:validIP2, #ip2)",
+                            Map.of(":ip1", av(1), ":validIP2", av(List.of("1", "2"))),
+                            Map.of("#ip1", "ip1", "#ip2", "ip2")),
+                    Map.of("ip1", ":ip1"), Map.of(":ip1", av(1)), null, false);
+        Assertions.fail();
+        } catch (ConditionalCheckFailedException e) {
+            Assertions.assertFalse(e.hasItem());
+            Assertions.assertEquals(e.item(), Map.of());
+        }
+    }
+
+    @Test
     public void testPutItem_shouldNotReplace_whenConditionExpressionPrevents() {
         // Setup
         var table = DynamoMockUtil.buildMockTable(NoIndexDynamoTable.class,
@@ -536,5 +555,14 @@ public class MockDynamoClientTest {
         // Verify
         Assertions.assertEquals("color5", colorIndex.getIndexName());
         Assertions.assertEquals(colorIndex.getClass(), table.getIndex("color5", String.class, Float.class).getClass());
+    }
+
+    private AttributeValue av(int value) {
+        return AttributeValue.builder().n(Integer.toString(value)).build();
+    }
+
+    private AttributeValue av(List<String> values) {
+        return AttributeValue.builder().l(values.stream()
+                .map(v -> AttributeValue.builder().n(v).build()).collect(Collectors.toList())).build();
     }
 }
