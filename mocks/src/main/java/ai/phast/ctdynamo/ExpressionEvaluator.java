@@ -272,8 +272,12 @@ public class ExpressionEvaluator extends DynamoBaseListener {
      * @throws RuntimeException If str or prefix are non-string values
      */
     static AttributeValue beginsWith(AttributeValue str, AttributeValue prefix) {
+        if (str == null || prefix == null) {
+            // If either parameter is invalid, then the result is invalid
+            return null;
+        }
         if (str.nul() == Boolean.TRUE) {
-            return AttributeValue.builder().bool(false).build(); // Null doesn't begin with anything
+            return AttributeValue.fromBool(false); // Null doesn't begin with anything
         }
         if (str.s() == null) {
             throw new RuntimeException("Non-string value as first parameter in begins_with()");
@@ -281,7 +285,7 @@ public class ExpressionEvaluator extends DynamoBaseListener {
         if (prefix.s() == null) {
             throw new RuntimeException("Non-string value as second parameter is begins_with()");
         }
-        return AttributeValue.builder().bool(str.s().startsWith(prefix.s())).build();
+        return AttributeValue.fromBool(str.s().startsWith(prefix.s()));
     }
 
     /**
