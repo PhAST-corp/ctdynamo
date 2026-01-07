@@ -48,7 +48,8 @@ public class MockTable extends DynamoTable<MockItem, String, String> {
         return Map.of(
             "partition", DynamoTableTest.av(value.partition),
             "sort", DynamoTableTest.av(value.sort),
-            "ival", DynamoTableTest.av(value.ival));
+            "ival", DynamoTableTest.av(value.ival),
+            "stringSet", AttributeValue.fromSs(value.stringSet));
     }
 
     @Override

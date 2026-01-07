@@ -15,6 +15,7 @@ updateSequence: updateSequence updatePart
 
 updatePart: 'SET' setTerms
   | 'REMOVE' removeTerms
+  | 'ADD' addTerms
   ;
 
 setTerms: setTerms ',' setTerm
@@ -26,6 +27,12 @@ setTerm: lvalAtom '=' andOr;
 removeTerms: removeTerms ',' lvalAtom
   | lvalAtom
   ;
+
+addTerms: addTerms ',' addTerm
+  | addTerm
+  ;
+
+addTerm: lvalAtom valueRefAtom ;
 
 andOr returns [ AttributeValue value ]
   : left=andOr 'AND' right=not { $value = ExpressionEvaluator.makeBool(ExpressionEvaluator.unpackBool($left.value) && ExpressionEvaluator.unpackBool($right.value)); }

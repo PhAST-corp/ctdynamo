@@ -55,6 +55,12 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     public static final String UPDATE_REMOVE_ATTRIBUTE = "";
 
     /**
+     * Providing this string at the start of an expression in updateItem indicates that the attribute should be
+     * added to the resulting set.
+     */
+    public static final String ADD_PREFIX = "+";
+
+    /**
      * Dynamo will fail if we try to do more than this many operations in one batch
      */
     private static final int MAX_ITEMS_PER_BATCH = 25;
@@ -1114,6 +1120,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                                                      Map<String, AttributeValue> values, Map<String, String> attributeNames, boolean returnPrevious) {
         var expression = new StringBuilder();
         List<String> removals = null;
+        List<String> additions = null;
         var prefix = "SET ";
         for (var entry : expressions.entrySet()) {
             var key = entry.getKey();
@@ -1126,6 +1133,12 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
                     removals = new ArrayList<>();
                 }
                 removals.add(key);
+            } else if (value.startsWith(ADD_PREFIX)) {
+                // We need to add this value
+                if (additions == null) {
+                    additions = new ArrayList<>();
+                }
+                additions.add(key + " " + value.substring(1));
             } else {
                 expression.append(prefix)
                     .append(nameRef)
@@ -1138,6 +1151,13 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
             prefix = " REMOVE #";
             for (var removal : removals) {
                 expression.append(prefix).append(removal);
+                prefix = ", #";
+            }
+        }
+        if (additions != null) {
+            prefix = " ADD #";
+            for (var addition : additions) {
+                expression.append(prefix).append(addition);
                 prefix = ", #";
             }
         }

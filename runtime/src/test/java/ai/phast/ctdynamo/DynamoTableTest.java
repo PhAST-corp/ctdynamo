@@ -318,7 +318,8 @@ public class DynamoTableTest {
         // Setup
         var client = new MockClient(PutItemRequest.builder()
                                         .tableName("mock")
-                                        .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10))).build(),
+                                        .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10),
+                                            "stringSet", AttributeValue.fromSs(List.of()))).build(),
             null);
         var table = new MockTable(client, null, "mock");
 
@@ -338,9 +339,10 @@ public class DynamoTableTest {
                 )
                 .returnValues(ReturnValue.ALL_NEW)
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-                .updateExpression("SET #ival = :ival")
-                .expressionAttributeNames(Map.of("#ival", "ival"))
-                .expressionAttributeValues(Map.of(":ival", AttributeValue.builder().n("123").build()))
+                .updateExpression("SET #stringSet = :stringSet, #ival = :ival")
+                .expressionAttributeNames(Map.of("#stringSet", "stringSet", "#ival", "ival"))
+                .expressionAttributeValues(Map.of(":ival", AttributeValue.fromN("123"),
+                    ":stringSet", AttributeValue.fromSs(List.of())))
                 .build(),
                 UpdateItemResponse.builder().build());
         var table = new MockTable(client, null, "mock");
@@ -363,8 +365,9 @@ public class DynamoTableTest {
                 )
                 .returnValues(ReturnValue.ALL_NEW)
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-                .updateExpression("")
-                .expressionAttributeNames(Map.of())
+                .updateExpression("SET #stringSet = :stringSet")
+                .expressionAttributeNames(Map.of("#stringSet", "stringSet"))
+                .expressionAttributeValues(Map.of(":stringSet", AttributeValue.fromSs(List.of())))
                 .build(),
                 UpdateItemResponse.builder().build());
         var table = new MockTable(client, null, "mock");
@@ -402,6 +405,32 @@ public class DynamoTableTest {
     }
 
     @Test
+    public void testUpdateItem_shouldAddItemsToStringSets_whenAddSyntaxUsed() {
+        // Setup
+        var client = new MockClient(UpdateItemRequest
+            .builder()
+            .tableName("mock")
+            .key(Map.of("partition", AttributeValue.fromS("p"),
+                "sort", AttributeValue.fromS("s")))
+            .returnValues(ReturnValue.ALL_NEW)
+            .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+            .updateExpression(" ADD #stringSet :newStringSet")
+            .expressionAttributeNames(Map.of("#stringSet", "stringSet"))
+            .expressionAttributeValues(Map.of(":newStringSet", AttributeValue.fromSs(List.of("Hello bro"))))
+            .build(),
+            UpdateItemResponse.builder().build());
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        table.updateItem("p", "s", null,
+            Map.of("stringSet", "+:newStringSet"),
+            Map.of(":newStringSet", AttributeValue.fromSs(List.of("Hello bro"))),
+            null, false);
+
+        // No verify step, was verified by the MockClient
+    }
+
+    @Test
     public void testUpdateItem_shouldRemoveAttribute_whenRemovingFieldThatIsPopulatedByItem() {
         // Setup
         var client = new MockClient(UpdateItemRequest
@@ -411,9 +440,10 @@ public class DynamoTableTest {
                         "sort", AttributeValue.builder().s("s").build()))
                 .returnValues(ReturnValue.ALL_NEW)
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-                .updateExpression(" REMOVE #ival")
+                .updateExpression("SET #stringSet = :stringSet REMOVE #ival")
                 // There should NOT be an attribute value map defining ival, just the attribute name map
-                .expressionAttributeNames(Map.of("#ival", "ival"))
+                .expressionAttributeNames(Map.of("#ival", "ival", "#stringSet", "stringSet"))
+                .expressionAttributeValues(Map.of(":stringSet", AttributeValue.fromSs(List.of())))
                 .build(),
                 UpdateItemResponse.builder().build());
         var table = new MockTable(client, null, "mock");
@@ -437,10 +467,12 @@ public class DynamoTableTest {
                 .tableName("mock")
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
-                .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
+                .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10),
+                    "stringSet", AttributeValue.fromSs(List.of())))
                 .build(),
             PutItemResponse.builder()
-                .attributes(Map.of("partition", av("p"), "sort", av("s"), "ival", av(5)))
+                .attributes(Map.of("partition", av("p"), "sort", av("s"), "ival", av(5),
+                    "stringSet", AttributeValue.fromSs(List.of())))
                 .consumedCapacity(ConsumedCapacity.builder()
                                       .capacityUnits(3.0)
                                       .build())
@@ -463,7 +495,7 @@ public class DynamoTableTest {
                 .tableName("mock")
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
-                .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
+                .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10), "stringSet", AttributeValue.fromSs(List.of())))
                 .conditionExpression("attribute_not_exists(#partition)")
                 .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
                 .expressionAttributeNames(Map.of("#partition", "partition"))
@@ -487,7 +519,8 @@ public class DynamoTableTest {
             items.add(new MockItem("p" + i, "s" + i, i));
             maps.add(WriteRequest.builder().putRequest(
                 PutRequest.builder()
-                    .item(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i))).build())
+                    .item(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i),
+                        "stringSet", AttributeValue.fromSs(List.of()))).build())
                          .build());
         }
         var client = new MockClient(
@@ -518,7 +551,8 @@ public class DynamoTableTest {
             items.add(new MockItem("p" + i, "s" + i, i));
             maps.add(WriteRequest.builder().putRequest(
                 PutRequest.builder()
-                    .item(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i))).build())
+                    .item(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i),
+                        "stringSet", AttributeValue.fromSs(List.of()))).build())
                          .build());
         }
         var client = new MockClient(
@@ -538,7 +572,8 @@ public class DynamoTableTest {
                         List.of(WriteRequest.builder()
                                     .putRequest(
                                         PutRequest.builder()
-                                            .item(Map.of("partition", av("xyz"), "sort", av("abc"), "ival", av(100)))
+                                            .item(Map.of("partition", av("xyz"), "sort", av("abc"), "ival", av(100),
+                                                "stringSet", AttributeValue.fromSs(List.of())))
                                             .build())
                                     .build())))
                     .build()));
@@ -557,7 +592,8 @@ public class DynamoTableTest {
         // Setup
         var client = new MockClient(PutItemRequest.builder()
                                         .tableName("mock")
-                                        .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10))).build(),
+                                        .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10),
+                                            "stringSet", AttributeValue.fromSs(List.of()))).build(),
             null);
         var table = new MockTable(client, null, "mock");
 
@@ -576,10 +612,12 @@ public class DynamoTableTest {
                 .tableName("mock")
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
-                .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
+                .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10),
+                    "stringSet", AttributeValue.fromSs(List.of())))
                 .build(),
             PutItemResponse.builder()
-                .attributes(Map.of("partition", av("p"), "sort", av("s"), "ival", av(5)))
+                .attributes(Map.of("partition", av("p"), "sort", av("s"), "ival", av(5),
+                    "stringSet", AttributeValue.fromSs(List.of())))
                 .consumedCapacity(ConsumedCapacity.builder().capacityUnits(3.0).build())
                 .build());
         var table = new MockTable(client, null, "mock");
@@ -600,7 +638,8 @@ public class DynamoTableTest {
                 .tableName("mock")
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .returnValues(ReturnValue.ALL_OLD)
-                .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10)))
+                .item(Map.of("partition", av("p"), "sort", av("s"), "ival", av(10),
+                    "stringSet", AttributeValue.fromSs(List.of())))
                 .conditionExpression("attribute_not_exists(#partition)")
                 .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
                 .expressionAttributeNames(Map.of("#partition", "partition"))
@@ -632,7 +671,8 @@ public class DynamoTableTest {
             items.add(new MockItem("p" + i, "s" + i, i));
             maps.add(WriteRequest.builder().putRequest(
                 PutRequest.builder()
-                    .item(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i))).build())
+                    .item(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i),
+                        "stringSet", AttributeValue.fromSs(List.of()))).build())
                          .build());
         }
         var client = new MockClient(
@@ -663,7 +703,8 @@ public class DynamoTableTest {
             items.add(new MockItem("p" + i, "s" + i, i));
             maps.add(WriteRequest.builder().putRequest(
                 PutRequest.builder()
-                    .item(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i))).build())
+                    .item(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i),
+                        "stringSet", AttributeValue.fromSs(List.of()))).build())
                          .build());
         }
         var client = new MockClient(

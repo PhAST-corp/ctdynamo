@@ -7,6 +7,8 @@ import ai.phast.ctdynamo.tables.NoSortKeyDynamoTable;
 import ai.phast.ctdynamo.tables.RenamedIndexDynamoTable;
 import ai.phast.ctdynamo.tables.WithIndex;
 import ai.phast.ctdynamo.tables.WithIndexDynamoTable;
+import ai.phast.ctdynamo.tables.WithStringSet;
+import ai.phast.ctdynamo.tables.WithStringSetDynamoTable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -14,6 +16,7 @@ import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedExce
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -67,6 +70,22 @@ public class MockDynamoClientTest {
             Assertions.assertFalse(e.hasItem());
             Assertions.assertEquals(e.item(), Map.of());
         }
+    }
+
+    @Test
+    public void testUpdateItem_shouldAddItemToSet_whenAddItemToSetSyntaxUsed() {
+        // Setup
+        var table = DynamoMockUtil.buildMockTable(WithStringSetDynamoTable.class,
+            new WithStringSet("whatever", 10, null));
+
+        // Act
+        var item = table.updateItem("whatever", 10, null, Map.of("stringSet", "+:newString"),
+            Map.of(":newString", AttributeValue.fromSs(List.of("hi"))),
+            Collections.emptyMap(), false).getItem();
+
+        // Verify
+        Assertions.assertEquals(1, item.getStringSet().size());
+        Assertions.assertEquals("hi", item.getStringSet().get(0));
     }
 
     @Test

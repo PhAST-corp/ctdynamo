@@ -4,7 +4,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import javax.management.Attribute;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ExpressionEvaluatorTest {
 
@@ -310,6 +314,31 @@ public class ExpressionEvaluatorTest {
 
         // Verify
         Assertions.assertFalse(result.bool());
+    }
+
+    @Test
+    public void testAdd_shouldAddStringToStringSet_whenCalledOnEmptyStringSet() {
+        // Act
+        var result = ExpressionEvaluator.update("ADD stringSet :newString",
+            Map.of("stringSet", AttributeValue.fromSs(List.of())),
+            Map.of(":newString", AttributeValue.fromSs(List.of("hello"))),
+            Map.of());
+
+        // Verify
+        Assertions.assertEquals(List.of("hello"), result.get("stringSet").ss());
+    }
+
+    @Test
+    public void testAdd_shouldAddStringToStringSet_whenCalledOnNonEmptyStringSet() {
+        // Act
+        var result = ExpressionEvaluator.update("ADD stringSet :newString",
+            Map.of("stringSet", AttributeValue.fromSs(List.of("one", "two"))),
+            Map.of(":newString", AttributeValue.fromSs(List.of("one", "three"))),
+            Map.of());
+
+        // Verify
+        Assertions.assertEquals(3, result.get("stringSet").ss().size());
+        Assertions.assertEquals(Set.of("one", "two", "three"), new HashSet<>(result.get("stringSet").ss()));
     }
 
     private AttributeValue av(String value) {

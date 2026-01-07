@@ -9,6 +9,8 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
@@ -136,6 +138,27 @@ public class ExpressionEvaluator extends DynamoBaseListener {
     @Override
     public void exitRemoveTerms(DynamoParser.RemoveTermsContext ctx) {
         curItem.remove(ctx.lvalAtom().value);
+    }
+
+
+    /**
+     * Evaluate an addition.
+     * @param ctx Context
+     */
+    @Override
+    public void exitAddTerm(DynamoParser.AddTermContext ctx) {
+        var lvalValue = ctx.lvalAtom().value;
+        var valueRefValue = ctx.valueRefAtom().value;
+        if (curItem.get(lvalValue) != null && !curItem.get(lvalValue).hasSs()) {
+            throw new IllegalArgumentException("Given lval must represent a string set.");
+        }
+        if (!valueRefValue.hasSs()) {
+            throw new IllegalArgumentException("The given value ref must be a string set.");
+        }
+        var newStringSet = new HashSet<>(
+            curItem.getOrDefault(lvalValue, AttributeValue.fromSs(List.of())).ss());
+        newStringSet.addAll(valueRefValue.ss());
+        curItem.put(lvalValue, AttributeValue.fromSs(new ArrayList<>(newStringSet)));
     }
 
     @Override

@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsResponse
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 import software.amazon.awssdk.services.dynamodb.model.Update;
 
+import java.util.List;
 import java.util.Map;
 
 public class TransactionTest {
@@ -26,7 +27,8 @@ public class TransactionTest {
             TransactWriteItem.builder()
                 .put(Put.builder()
                     .tableName("table2")
-                    .item(Map.of("partition", av("c"), "sort", av("cookies"), "ival", av(10)))
+                    .item(Map.of("partition", av("c"), "sort", av("cookies"), "ival", av(10),
+                        "stringSet", AttributeValue.fromSs(List.of())))
                     .conditionExpression("attribute_not_exists(#partition)")
                     .expressionAttributeNames(Map.of("#partition", "partition"))
                     .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
