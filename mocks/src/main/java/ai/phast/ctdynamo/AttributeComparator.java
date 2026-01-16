@@ -43,7 +43,7 @@ class AttributeComparator implements Comparator<AttributeValue> {
         if (value1 == null) {
             if (value2 == null) {
                 return 0;
-            } else if (value2.s() != null) {
+            } else if (value2.s() != null || value2.n() != null) {
                 return -1;
             } else {
                 throw new IllegalArgumentException("Cannot compare: " + value1 + " vs. " + value2);
@@ -58,7 +58,11 @@ class AttributeComparator implements Comparator<AttributeValue> {
 
         text1 = value1.n();
         if (text1 != null) {
-            // It's numeric. Get the other value's number string, then work out whether we shoud use integer or floating point comparison
+            if (value2 == null) {
+                return 1;
+            }
+            // It's numeric. Get the other value's number string, then work out whether we should use integer or
+            // floating point comparison
             var text2 = Objects.requireNonNull(value2.n(), "Cannot compare: " + value1 + " vs. " + value2);
             var isDecimal = text1.indexOf('.') >= 0 || text2.indexOf('.') >= 0
                                 || text1.indexOf('e') >= 0 || text2.indexOf('e') >= 0
