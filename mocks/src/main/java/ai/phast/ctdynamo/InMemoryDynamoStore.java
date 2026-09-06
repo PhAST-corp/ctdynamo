@@ -32,11 +32,6 @@ class InMemoryDynamoStore {
     private static final AttributeValue BLANK_ATTRIBUTE_VALUE = AttributeValue.builder().s("").build();
 
     /**
-     * Regex that matches a dynamo parameter.
-     */
-    private static final String PARAM = "[A-Za-z_][A-Za-z0-9_]*";
-
-    /**
      * The items in our store, keyed first by the tuple of partition values (in key order, so a table's tuple always
      * has one entry and an index's may have up to four), then by sort key within that partition
      */

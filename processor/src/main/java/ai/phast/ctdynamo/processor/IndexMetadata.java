@@ -73,7 +73,7 @@ class IndexMetadata {
      * @return The attribute name, or null if this index has no partition key at that position
      */
     public String getPartitionAttribute(int position) {
-        return position < MAX_PARTITION_KEYS ? partitionAttributes[position] : null;
+        return partitionAttributes[position];
     }
 
     /**

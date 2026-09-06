@@ -328,12 +328,14 @@ public class CtClassGenerator {
      * @return The type arguments, in declaration order
      */
     private TypeMirror[] buildIndexTypeArguments(IndexMetadata metadata) {
+        // First the data type stored; then the types of the partition keys, then the type of the sort key,
+        // gives us MAX_PARTITION_KEYS + 2 entries in the array
         var result = new TypeMirror[IndexMetadata.MAX_PARTITION_KEYS + 2];
         result[0] = typeTools.types.getDeclaredType(itemType);
         for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
             result[position + 1] = getIndexPartitionType(metadata, position);
         }
-        result[result.length - 1] = metadata.getSortAttribute() == null
+        result[IndexMetadata.MAX_PARTITION_KEYS + 1] = metadata.getSortAttribute() == null
             ? typeTools.voidMirror
             : attributes.get(metadata.getSortAttribute()).boxedReturnType;
         return result;
@@ -341,7 +343,7 @@ public class CtClassGenerator {
 
     /**
      * Get the type of one of an index's partition keys
-     * @param metadata The metadata of the index
+     * @param metadata The metadata of the index. Must be 0..3
      * @param position The zero-based position of the partition key
      * @return The boxed type of that partition key, or Void if the index has no partition key at that position
      */

@@ -1358,8 +1358,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         throw new UnsupportedOperationException();
     }
 
-    /* Tables always have exactly one partition key, so partitions 2-4 are always absent. These must return null
-       rather than throw: Query.partitionItem reads all four from the index and relies on null to mean "not used". */
+    // Tables always have exactly one partition key, so partitions 2-4 are always absent. These must return null:
+    // Query.partitionItem reads all four from the index and relies on null to mean "not used".
 
     @Override
     public final Void getPartitionValue2(T value) {
