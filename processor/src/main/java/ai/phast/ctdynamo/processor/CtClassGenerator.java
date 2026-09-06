@@ -3,6 +3,7 @@ package ai.phast.ctdynamo.processor;
 import ai.phast.ctdynamo.DynamoCodec;
 import ai.phast.ctdynamo.DynamoIndex;
 import ai.phast.ctdynamo.DynamoTable;
+import ai.phast.ctdynamo.Query;
 import ai.phast.ctdynamo.annotations.DynamoAttribute;
 import ai.phast.ctdynamo.annotations.DynamoIgnore;
 import ai.phast.ctdynamo.annotations.DynamoItem;
@@ -299,8 +300,9 @@ public class CtClassGenerator {
             TypeName name = ClassName.get(packageName, itemType.getSimpleName() + "DynamoTable",
                     indexNameToClassName(indexName));
 
-            // Create the class that we return. We can't return the actual class of the index, that is a private inner
-            // class, so we have to instead return the parameterized DynamoIndex class that the real index class extends.
+            // The supertype the index class extends: DynamoIndex<ItemType, P1..P4, SortType>. We return the concrete
+            // index class rather than this, so that callers get the index's own query() overload and never have to
+            // write out the six type arguments (including the Void ones) themselves.
             var indexType = typeTools.types.getDeclaredType(
                 (TypeElement)typeTools.types.asElement(typeTools.indexMirror),  // DynamoIndex<
                 buildIndexTypeArguments(metadata));                               //     ItemType, P1..P4, SortType>
@@ -308,7 +310,7 @@ public class CtClassGenerator {
             classBuilder.addType(buildIndexInnerClass(indexName, indexType));
             classBuilder.addMethod(MethodSpec.methodBuilder("get" + indexNameToClassName(indexName))
                     .addModifiers(Modifier.PUBLIC)
-                    .returns(ParameterizedTypeName.get(indexType))
+                    .returns(name)
                     .addStatement("return new $T(getClient(), getAsyncClient(), getTableName())", name)
                     .build());
         }
@@ -361,7 +363,10 @@ public class CtClassGenerator {
         if (partitionAttributes.isEmpty()) {
             throw new CtException("Index " + indexName + " has no partition key", metadata.getDeclaringElement());
         }
+        // The class is public so callers can name it, but only the enclosing table may build one. A private
+        // constructor is still reachable from the table class that encloses us.
         var constructorBuilder = MethodSpec.constructorBuilder()
+                .addModifiers(Modifier.PRIVATE)
                 .addParameter(DynamoDbClient.class, "client")
                 .addParameter(DynamoDbAsyncClient.class, "asyncClient")
                 .addParameter(String.class, "tableName");
@@ -379,9 +384,13 @@ public class CtClassGenerator {
                 indexName, partitionList.build(), metadata.getSortAttribute());
         }
         var classBuilder = TypeSpec.classBuilder(indexNameToClassName(indexName))
-                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
                 .superclass(ParameterizedTypeName.get(indexType))
-                .addMethod(constructorBuilder.build());
+                .addMethod(constructorBuilder.build())
+                // DynamoIndex.query() sets no partition value, because it cannot know how many this index has.
+                // These overloads take exactly the partition values we do have. Keep them adjacent.
+                .addMethod(buildIndexQueryMethod(indexName, metadata, false))
+                .addMethod(buildIndexQueryMethod(indexName, metadata, true));
         // Partition slots past the end of this index are still abstract in DynamoIndex, so every index has to
         // implement all four. The unused ones take/return Void: the getters return null, which is how the runtime
         // recognizes that an index has fewer than four partition keys, and the converters are never called.
@@ -401,6 +410,57 @@ public class CtClassGenerator {
                 .addMethod(buildGetExclusiveStartKeyMethod(partitionAttributes, metadata.getSortAttribute()))
                 .addMethod(buildDecodeExclusiveStartMethod(partitionAttributes, metadata.getSortAttribute()));
         return classBuilder.build();
+    }
+
+    /**
+     * Build the type of the {@link Query} that an index's query methods return, which is
+     * Query&lt;ItemType, P1..P4, SortType&gt; with the same arguments the index itself is parameterized on.
+     * @param metadata The metadata of the index
+     * @return The parameterized Query type
+     */
+    private ParameterizedTypeName buildQueryType(IndexMetadata metadata) {
+        var arguments = buildIndexTypeArguments(metadata);
+        var typeNames = new TypeName[arguments.length];
+        for (var i = 0; i < arguments.length; i++) {
+            typeNames[i] = TypeName.get(arguments[i]);
+        }
+        return ParameterizedTypeName.get(ClassName.get(Query.class), typeNames);
+    }
+
+    /**
+     * Build a query method for an index, taking exactly as many partition values as the index has partition keys.
+     * The unused partition slots are passed to {@link Query#partitionValue} as nulls, which is how it recognizes
+     * that an index has fewer than four partition keys.
+     * @param indexName The name of the index, used in the javadoc we generate
+     * @param metadata The metadata of the index
+     * @param async True to build queryAsync(), false to build query()
+     * @return The MethodSpec for the query method
+     */
+    private MethodSpec buildIndexQueryMethod(String indexName, IndexMetadata metadata, boolean async) {
+        var numPartitions = metadata.getPartitionAttributes().size();
+        var builder = MethodSpec.methodBuilder(async ? "queryAsync" : "query")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(buildQueryType(metadata))
+                .addJavadoc("Start building $L query on the $S index, searching items with the given partition "
+                    + "values.\n", async ? "an asynchronous" : "a synchronous", indexName);
+        var call = CodeBlock.builder().add("return $L().partitionValue(", async ? "queryAsync" : "query");
+        for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
+            if (position > 0) {
+                call.add(", ");
+            }
+            if (position < numPartitions) {
+                var parameterName = "partition" + (position + 1) + "Value";
+                builder.addParameter(TypeName.get(getIndexPartitionType(metadata, position)), parameterName)
+                    .addJavadoc("@param $L The value of partition key $L to search\n", parameterName, position + 1);
+                call.add("$L", parameterName);
+            } else {
+                call.add("null");
+            }
+        }
+        call.add(")");
+        return builder.addJavadoc("@return A query on this index\n")
+                .addStatement("$L", call.build())
+                .build();
     }
 
     /**

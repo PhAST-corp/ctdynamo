@@ -123,6 +123,30 @@ public class QueryTest {
     }
 
     @Test
+    public void testQuery_shouldBuildEqualityKeyQuery_whenSortEquals() {
+        // Setup
+        var client = new MockClient(
+            QueryRequest.builder()
+                .tableName("mock")
+                .scanIndexForward(true)
+                .keyConditionExpression("#partition = :ctdynamo_p1 AND #sort=:ctdynamo_s1")
+                .expressionAttributeNames(Map.of("#partition", "partition", "#sort", "sort"))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p"), ":ctdynamo_s1", av("x")))
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+                .build(),
+            QueryResponse.builder().build());
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        var result = table.query("p").sortEquals("x").invoke();
+
+        // Verify
+        Assertions.assertEquals(List.of(), result.stream().collect(Collectors.toList()));
+        Assertions.assertNull(result.getExclusiveStartKey());
+        client.assertDone();
+    }
+
+    @Test
     public void testQuery_shouldBuildKeyQuery_whenUpperBound() {
         // Setup
         var client = new MockClient(

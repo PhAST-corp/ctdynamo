@@ -80,6 +80,30 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     }
 
     /**
+     * Start building a query on this table. The query will be synchronous (but that may be changed by calling
+     * async(boolean) on the query returned), and will search items with the specified partition key.
+     *
+     * <p>A table always has exactly one partition key, which is why this overload lives here rather than on
+     * {@link DynamoIndex}: an index may have up to four, so each generated index class declares its own overload
+     * taking exactly the partition values that index has.
+     * @param partitionValue The partition value that will be searched by this query
+     * @return A query for this table
+     */
+    public final Query<T, PartitionT, Void, Void, Void, SortT> query(PartitionT partitionValue) {
+        return query().partitionValue(partitionValue, null, null, null);
+    }
+
+    /**
+     * Start building a query on this table. The query will be asynchronous, and will search items with the specified
+     * partition key
+     * @param partitionValue The partition value that will be searched by this query
+     * @return A query for this table
+     */
+    public final Query<T, PartitionT, Void, Void, Void, SortT> queryAsync(PartitionT partitionValue) {
+        return queryAsync().partitionValue(partitionValue, null, null, null);
+    }
+
+    /**
      * Read an item from the table
      * @param value The partition and sort keys will be read from this item and used to fetch the result
      * @return The item stored in the table with partition and sort keys that match value, or null if no such item

@@ -151,6 +151,10 @@ public abstract class DynamoIndex<T, Partition1T, Partition2T, Partition3T, Part
     /**
      * Start building a query on this table or index. The query will by synchronous (but that may be changed by
      * calling async(boolean) on the query returned)
+     *
+     * <p>This form sets no partition value. Tables offer a query(partitionValue) overload, and each generated index
+     * class offers a query() overload that takes exactly the partition values that index has; prefer those, and fall
+     * back to this one plus {@link Query#partitionValue} only when you do not have the concrete type in hand.
      * @return A query for this table or index
      */
     public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query() {
@@ -158,120 +162,15 @@ public abstract class DynamoIndex<T, Partition1T, Partition2T, Partition3T, Part
     }
 
     /**
-     * Start building a query on this table or index. The query will by synchronous, and will search items with the
-     * specified partition key
-     * @param partition1Value The first partition value that will be searched by this query
-     * @return A query for this table or index
-     */
-    public final Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query(
-            Partition1T partition1Value) {
-        return new Query<>(this).partitionValue(partition1Value, null, null, null);
-    }
-
-    /**
-     * Start building a query on this table or index. The query will by synchronous, and will search items with the
-     * specified partition keys
-     * @param partition1Value The first partition value that will be searched by this query
-     * @param partition2Value The second partition value that will be searched by this query
-     * @return A query for this table or index
-     */
-    public final Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query(
-            Partition1T partition1Value,
-            Partition2T partition2Value) {
-        return new Query<>(this).partitionValue(partition1Value, partition2Value, null, null);
-    }
-    /**
-     * Start building a query on this table or index. The query will by synchronous, and will search items with the
-     * specified partition keys
-     * @param partition1Value The first partition value that will be searched by this query
-     * @param partition2Value The second partition value that will be searched by this query
-     * @param partition3Value The third partition value that will be searched by this query
-     * @return A query for this table or index
-     */
-    public final Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query(
-            Partition1T partition1Value,
-            Partition2T partition2Value,
-            Partition3T partition3Value) {
-        return new Query<>(this).partitionValue(partition1Value, partition2Value, partition3Value, null);
-    }
-    /**
-     * Start building a query on this table or index. The query will by synchronous, and will search items with the
-     * specified partition keys
-     * @param partition1Value The first partition value that will be searched by this query
-     * @param partition2Value The second partition value that will be searched by this query
-     * @param partition3Value The third partition value that will be searched by this query
-     * @param partition4Value The fourth partition value that will be searched by this query
-     * @return A query for this table or index
-     */
-    public final Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query(
-            Partition1T partition1Value,
-            Partition2T partition2Value,
-            Partition3T partition3Value,
-            Partition4T partition4Value) {
-        return new Query<>(this).partitionValue(partition1Value, partition2Value, partition3Value, partition4Value);
-    }
-    /**
      * Start building a query on this table or index. The query will be asynchronous (but that may be changed by calling
      * async(boolean) on the query returned)
+     *
+     * <p>As with {@link #query()}, this form sets no partition value; prefer the overloads that tables and generated
+     * index classes declare.
      * @return A query for this table or index
      */
     public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync() {
         return new Query<>(this).async(true);
-    }
-
-    /**
-     * Start building a query on this table or index. The query will by asynchronous, and will search items with the
-     * specified partition key
-     * @param partition1Value The first partition value that will be searched by this query
-     * @return A query for this table or index
-     */
-    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync(
-            Partition1T partition1Value) {
-        return new Query<>(this).partitionValue(partition1Value, null, null, null)
-                .async(true);
-    }
-
-    /**
-     * Start building a query on this table or index. The query will by asynchronous, and will search items with the
-     * specified partition keys
-     * @param partition1Value The first partition value that will be searched by this query
-     * @param partition2Value The second partition value that will be searched by this query
-     * @return A query for this table or index
-     */
-    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync(
-            Partition1T partition1Value, Partition2T partition2Value) {
-        return new Query<>(this).partitionValue(partition1Value, partition2Value, null, null)
-                .async(true);
-    }
-
-    /**
-     * Start building a query on this table or index. The query will by asynchronous, and will search items with the
-     * specified partition keys
-     * @param partition1Value The first partition value that will be searched by this query
-     * @param partition2Value The second partition value that will be searched by this query
-     * @param partition3Value The third partition value that will be searched by this query
-     * @return A query for this table or index
-     */
-    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync(
-            Partition1T partition1Value, Partition2T partition2Value, Partition3T partition3Value) {
-        return new Query<>(this).partitionValue(partition1Value, partition2Value, partition3Value, null)
-                .async(true);
-    }
-
-    /**
-     * Start building a query on this table or index. The query will by asynchronous, and will search items with the
-     * specified partition keys
-     * @param partition1Value The first partition value that will be searched by this query
-     * @param partition2Value The second partition value that will be searched by this query
-     * @param partition3Value The third partition value that will be searched by this query
-     * @param partition4Value The fourth partition value that will be searched by this query
-     * @return A query for this table or index
-     */
-    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync(
-            Partition1T partition1Value, Partition2T partition2Value, Partition3T partition3Value,
-            Partition4T partition4Value) {
-        return new Query<>(this).partitionValue(partition1Value, partition2Value, partition3Value, partition4Value)
-                .async(true);
     }
 
     /**

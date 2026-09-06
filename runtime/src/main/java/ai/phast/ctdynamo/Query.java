@@ -121,6 +121,19 @@ public final class Query<T, Partition1T, Partition2T, Partition3T, Partition4T, 
     }
 
     /**
+     * Query values whose sort key equals the given value.
+     * This clears any previous sort key restriction
+     * @param value Only return values with this exact sort key
+     * @return This query
+     */
+    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> sortEquals(SortT value) {
+        sort1 = value;
+        sort2 = null;
+        keyExpression = buildKeyExpression("=");
+        return this;
+    }
+
+    /**
      * Query between the lo and hi values, inclusive. The partition key of the lo value sets the partition searched
      * @param lo The lowest sort value to include
      * @param hi The highest sort value to include

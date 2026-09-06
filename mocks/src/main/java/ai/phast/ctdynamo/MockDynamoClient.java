@@ -246,6 +246,8 @@ class MockDynamoClient implements DynamoDbClient {
             throw new RuntimeException("Cannot parse key expression: " + conditionExpression);
         }
         switch (opMatcher.group(1)) {
+            case "=":
+                return store.getRange(partitionValue, s1, true, s1, true);
             case ">":
                 return store.getRange(partitionValue, s1, false, null, false);
             case ">=":
