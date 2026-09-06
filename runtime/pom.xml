@@ -7,7 +7,7 @@
     <parent>
         <artifactId>ctdynamo-parent</artifactId>
         <groupId>ai.phast</groupId>
-        <version>0.1.5</version>
+        <version>1.0.0</version>
     </parent>
     <artifactId>ctdynamo-runtime</artifactId>
     <packaging>jar</packaging>
@@ -84,7 +84,7 @@
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.1.1</version>
                 <configuration>
-                    <configLocation>${project.parent.basedir}/checkstyle.xml</configLocation>
+                    <configLocation>${maven.multiModuleProjectDirectory}/checkstyle.xml</configLocation>
                     <encoding>UTF-8</encoding>
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>true</failsOnError>

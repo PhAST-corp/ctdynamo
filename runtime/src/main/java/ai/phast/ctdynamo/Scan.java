@@ -17,13 +17,13 @@ import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
  *
  * @param <T> The type of item to return
  */
-public final class Scan<T> extends BaseQueryScan<T, DynamoIndex<T, ?, ?>, Scan<T>> {
+public final class Scan<T> extends BaseQueryScan<T, DynamoIndex<T, ?, ?, ?, ?, ?>, Scan<T>> {
 
     /**
      * Build a new scan
      * @param index The index or table we are scanning
      */
-    Scan(DynamoIndex<T, ?, ?> index) {
+    Scan(DynamoIndex<T, ?, ?, ?, ?, ?> index) {
         super(index);
     }
 

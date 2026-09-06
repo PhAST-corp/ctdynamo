@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
  * @param <PartitionT> The type of the partition key for this table
  * @param <SortT> The type of the sort key for this table
  */
-public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, PartitionT, SortT> {
+public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, PartitionT, Void, Void, Void, SortT> {
 
     /**
      * Providing this string as an expression in updateItem indicates that the attribute should not be updated.
@@ -76,7 +76,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      */
     public DynamoTable(DynamoDbClient client, DynamoDbAsyncClient asyncClient, String tableName,
                        String partitionKeyAttribute, String sortKeyAttribute) {
-        super(client, asyncClient, tableName, null, partitionKeyAttribute, sortKeyAttribute);
+        super(client, asyncClient, tableName, null, List.of(partitionKeyAttribute), sortKeyAttribute);
     }
 
     /**
@@ -86,7 +86,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      *         exists
      */
     public final T getItem(T value) {
-        return getItem(getPartitionValue(value), getSortValue(value));
+        return getItem(getPartitionValue1(value), getSortValue(value));
     }
 
     /**
@@ -110,7 +110,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return A result that contains the matching item (if any) and capacity data
      */
     public final ExtendedItemResult<T> getItemExtended(T value, boolean useConsistentRead) {
-        return getItemExtended(getPartitionValue(value), getSortValue(value), useConsistentRead);
+        return getItemExtended(getPartitionValue1(value), getSortValue(value), useConsistentRead);
     }
 
     /**
@@ -147,7 +147,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      *         exists
      */
     public final CompletableFuture<T> getItemAsync(T value) {
-        return getItemAsync(getPartitionValue(value), getSortValue(value));
+        return getItemAsync(getPartitionValue1(value), getSortValue(value));
     }
 
     /**
@@ -172,7 +172,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return A future that contains the matching item (if any) and capacity data
      */
     public final CompletableFuture<ExtendedItemResult<T>> getItemExtendedAsync(T value, boolean useConsistentRead) {
-        return getItemExtendedAsync(getPartitionValue(value), getSortValue(value), useConsistentRead);
+        return getItemExtendedAsync(getPartitionValue1(value), getSortValue(value), useConsistentRead);
     }
 
     /**
@@ -217,7 +217,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param keys The keys used to get the batch
      * @return The result of the read
      */
-    public List<T> getBatchByKey(Collection<Key<PartitionT, SortT>> keys) {
+    public List<T> getBatchByKey(Collection<Key<PartitionT, Void, Void, Void, SortT>> keys) {
         return getBatch(buildGetBatchesFromKeys(keys, false));
     }
 
@@ -246,7 +246,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param consistentRead Is this request a consistent read
      * @return The result of the read and the capacity data
      */
-    public ExtendedBatchResult<T, Key<PartitionT, SortT>> getBatchByItemExtended(Collection<T> items, boolean consistentRead) {
+    public ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> getBatchByItemExtended(Collection<T> items, boolean consistentRead) {
         return getBatchExtended(buildGetBatchesFromItems(items, consistentRead));
     }
 
@@ -256,7 +256,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param consistentRead Is this request a consistent read
      * @return The result of the read and the capacity data
      */
-    public ExtendedBatchResult<T, Key<PartitionT, SortT>> getBatchByKeyExtended(Collection<Key<PartitionT, SortT>> keys, boolean consistentRead) {
+    public ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> getBatchByKeyExtended(
+            Collection<Key<PartitionT, Void, Void, Void, SortT>> keys, boolean consistentRead) {
         return getBatchExtended(buildGetBatchesFromKeys(keys, consistentRead));
     }
 
@@ -266,8 +267,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param batches The list of batches to fetch
      * @return The results of the read
      */
-    private ExtendedBatchResult<T, Key<PartitionT, SortT>> getBatchExtended(List<Map<String, KeysAndAttributes>> batches) {
-        var result = new ExtendedBatchResult<T, Key<PartitionT, SortT>>();
+    private ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> getBatchExtended(List<Map<String, KeysAndAttributes>> batches) {
+        var result = new ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>();
         for (var batch : batches) {
             var request = BatchGetItemRequest.builder()
                               .requestItems(batch)
@@ -293,7 +294,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param keys The keys used to get the batch
      * @return A future containing the results of all batches combined together
      */
-    public CompletableFuture<List<T>> getBatchByKeyAsync(Collection<Key<PartitionT, SortT>> keys) {
+    public CompletableFuture<List<T>> getBatchByKeyAsync(Collection<Key<PartitionT, Void, Void, Void, SortT>> keys) {
         return getBatchAsync(buildGetBatchesFromKeys(keys, false));
     }
 
@@ -327,7 +328,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param consistentRead Is this request a consistent read
      * @return A future with the result of the read and the capacity data
      */
-    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> getBatchByItemExtendedAsync(Collection<T> items, boolean consistentRead) {
+    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>> getBatchByItemExtendedAsync(Collection<T> items, boolean consistentRead) {
         return getBatchExtendedAsync(buildGetBatchesFromItems(items, consistentRead));
     }
 
@@ -337,7 +338,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param consistentRead Is this request a consistent read
      * @return A future with the result of the read and the capacity data
      */
-    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> getBatchByKeyExtendedAsync(Collection<Key<PartitionT, SortT>> keys, boolean consistentRead) {
+    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>>
+            getBatchByKeyExtendedAsync(Collection<Key<PartitionT, Void, Void, Void, SortT>> keys, boolean consistentRead) {
         return getBatchExtendedAsync(buildGetBatchesFromKeys(keys, consistentRead));
     }
 
@@ -347,8 +349,10 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param batches The list of batches to fetch
      * @return A future with the results of the read
      */
-    private CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> getBatchExtendedAsync(List<Map<String, KeysAndAttributes>> batches) {
-        var result = CompletableFuture.completedFuture(new ExtendedBatchResult<T, Key<PartitionT, SortT>>());
+    private CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>> getBatchExtendedAsync(
+            List<Map<String, KeysAndAttributes>> batches) {
+        var result = CompletableFuture.completedFuture(
+                new ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>());
         for (var batch : batches) {
             var request = BatchGetItemRequest.builder()
                               .requestItems(batch)
@@ -368,7 +372,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param response The response from dynamo
      * @return The result (after updating it)
      */
-    private ExtendedBatchResult<T, Key<PartitionT, SortT>> updateExtendedGetBatchResult(ExtendedBatchResult<T, Key<PartitionT, SortT>> result, BatchGetItemResponse response) {
+    private ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> updateExtendedGetBatchResult(
+            ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> result, BatchGetItemResponse response) {
         if (response.hasResponses()) {
             response.responses().get(getTableName()).stream()
                 .map(this::decode)
@@ -381,7 +386,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         }
         if (response.hasUnprocessedKeys() && !response.unprocessedKeys().isEmpty()) {
             for (var keyMap : response.unprocessedKeys().get(getTableName()).keys()) {
-                result.getUnprocessedValues().add(new Key<>(getPartitionValue(keyMap.get(getPartitionKeyAttribute())),
+                result.getUnprocessedValues().add(Key.of(getPartitionValue1(keyMap.get(
+                        getPartitionKeyAttributes().get(0))),
                     getSortValue(keyMap.get(getSortKeyAttribute()))));
             }
         }
@@ -402,7 +408,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
             result.add(Collections.singletonMap(getTableName(),
                 KeysAndAttributes.builder()
                     .keys(itemList.subList(offset, Math.min(numItems, offset + MAX_ITEMS_PER_BATCH)).stream()
-                              .map(item -> keysToMap(getPartitionValue(item), getSortValue(item)))
+                              .map(item -> keysToMap(getPartitionValue1(item), getSortValue(item)))
                               .collect(Collectors.toList()))
                     .consistentRead(consistentRead)
                     .build()));
@@ -416,7 +422,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param consistentRead Is this request a consistent read
      * @return A list of batches to submit for processing
      */
-    private List<Map<String, KeysAndAttributes>> buildGetBatchesFromKeys(Collection<Key<PartitionT, SortT>> keys, boolean consistentRead) {
+    private List<Map<String, KeysAndAttributes>> buildGetBatchesFromKeys(Collection<Key<PartitionT, Void, Void, Void, SortT>> keys, boolean consistentRead) {
         var keyList = getListFromCollection(keys);
         int numItems = keys.size();
         var result = new ArrayList<Map<String, KeysAndAttributes>>((numItems + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH);
@@ -424,7 +430,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
             result.add(Collections.singletonMap(getTableName(),
                 KeysAndAttributes.builder()
                     .keys(keyList.subList(offset, Math.min(numItems, offset + MAX_ITEMS_PER_BATCH)).stream()
-                              .map(key -> keysToMap(key.getPartition(), key.getSort()))
+                              .map(key -> keysToMap(key.getPartition1(), key.getSort()))
                               .collect(Collectors.toList()))
                     .consistentRead(consistentRead)
                     .build()));
@@ -645,7 +651,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param value A value whose partition and sort keys indicate what to remove
      */
     public final void deleteItem(T value) {
-        deleteItem(getPartitionValue(value), getSortValue(value));
+        deleteItem(getPartitionValue1(value), getSortValue(value));
     }
 
     /**
@@ -672,7 +678,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * Delete a batch of items. This can't be named "deleteBatch" because erasure makes it the same as the by-key version.
      * @param keys The keys of the items to be deleted
      */
-    public void deleteBatchByKey(Collection<Key<PartitionT, SortT>> keys) {
+    public void deleteBatchByKey(Collection<Key<PartitionT, Void, Void, Void, SortT>> keys) {
         deleteBatch(buildDeleteBatchesFromKeys(keys));
     }
 
@@ -699,7 +705,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return An extended item result with consumption and the deleted item (if any) filled in
      */
     public final ExtendedItemResult<T> deleteItemExtended(T value, ConditionExpression conditionExpression, boolean returnPrevious) {
-        return deleteItemExtended(getPartitionValue(value), getSortValue(value), conditionExpression, returnPrevious);
+        return deleteItemExtended(getPartitionValue1(value), getSortValue(value), conditionExpression, returnPrevious);
     }
 
     /**
@@ -732,7 +738,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param items The items whose keys will be used to get the batch
      * @return An extended batch result with the unprocessed values and the capacity consumed
      */
-    public ExtendedBatchResult<T, Key<PartitionT, SortT>> deleteBatchByItemExtended(Collection<T> items) {
+    public ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> deleteBatchByItemExtended(
+            Collection<T> items) {
         return deleteBatchExtended(buildDeleteBatchesFromItems(items));
     }
 
@@ -741,7 +748,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param keys The partition and sort keys to delete
      * @return An extended batch result with the unprocessed values and the capacity consumed
      */
-    public ExtendedBatchResult<T, Key<PartitionT, SortT>> deleteBatchByKeyExtended(Collection<Key<PartitionT, SortT>> keys) {
+    public ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> deleteBatchByKeyExtended(
+            Collection<Key<PartitionT, Void, Void, Void, SortT>> keys) {
         return deleteBatchExtended(buildDeleteBatchesFromKeys(keys));
     }
 
@@ -750,11 +758,14 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param batches The batches of items ot delete
      * @return An extended batch result with the unprocessed values and the capacity consumed
      */
-    private ExtendedBatchResult<T, Key<PartitionT, SortT>> deleteBatchExtended(List<Map<String, List<WriteRequest>>> batches) {
-        var result = new ExtendedBatchResult<T, Key<PartitionT, SortT>>();
+    private ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> deleteBatchExtended(
+            List<Map<String, List<WriteRequest>>> batches) {
+        var result = new ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>();
         for (var batch: batches) {
             var req = BatchWriteItemRequest.builder().requestItems(batch).build();
-            updateBatchResultForDelete(result, getClient() == null ? getAsyncClient().batchWriteItem(req).join() : getClient().batchWriteItem(req));
+            updateBatchResultForDelete(result, getClient() == null
+                    ? getAsyncClient().batchWriteItem(req).join()
+                    : getClient().batchWriteItem(req));
         }
         return result;
     }
@@ -766,7 +777,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return A future that indicates when the operation is complete
      */
     public final CompletableFuture<Void> deleteItemAsync(T value) {
-        return deleteItemAsync(getPartitionValue(value), getSortValue(value));
+        return deleteItemAsync(getPartitionValue1(value), getSortValue(value));
     }
 
     /**
@@ -797,7 +808,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param keys The keys used to get the batch
      * @return A future that indicates when the operation is complete
      */
-    public CompletableFuture<Void> deleteBatchByKeyAsync(Collection<Key<PartitionT, SortT>> keys) {
+    public CompletableFuture<Void> deleteBatchByKeyAsync(Collection<Key<PartitionT, Void, Void, Void, SortT>> keys) {
         return deleteBatchAsync(buildDeleteBatchesFromKeys(keys));
     }
 
@@ -822,7 +833,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @return A future containing consumption and the deleted item (if any) filled in
      */
     public final CompletableFuture<ExtendedItemResult<T>> deleteItemExtendedAsync(T value, boolean returnPrevious) {
-        return deleteItemExtendedAsync(getPartitionValue(value), getSortValue(value), returnPrevious);
+        return deleteItemExtendedAsync(getPartitionValue1(value), getSortValue(value), returnPrevious);
     }
 
     /**
@@ -831,8 +842,9 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param returnPrevious If true, then the deleted value will be returned
      * @return A future containing consumption and the deleted item (if any) filled in
      */
-    public final CompletableFuture<ExtendedItemResult<T>> deleteItemExtendedAsync(Key<PartitionT, SortT> key, boolean returnPrevious) {
-        return deleteItemExtendedAsync(key.getPartition(), key.getSort(), returnPrevious);
+    public final CompletableFuture<ExtendedItemResult<T>> deleteItemExtendedAsync(
+            Key<PartitionT, Void, Void, Void, SortT> key, boolean returnPrevious) {
+        return deleteItemExtendedAsync(key.getPartition1(), key.getSort(), returnPrevious);
     }
 
     /**
@@ -858,7 +870,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param items The items whose keys will be used to get the batch
      * @return A future containing the consumed capacity and the unprocessed values
      */
-    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> deleteBatchByItemExtendedAsync(Collection<T> items) {
+    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>>
+            deleteBatchByItemExtendedAsync(Collection<T> items) {
         return deleteBatchExtendedAsync(buildDeleteBatchesFromItems(items));
     }
 
@@ -867,7 +880,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param keys The keys used to get the batch
      * @return A future containing the consumed capacity and the unprocessed values
      */
-    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> deleteBatchByKeyExtendedAsync(Collection<Key<PartitionT, SortT>> keys) {
+    public CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>>
+            deleteBatchByKeyExtendedAsync(Collection<Key<PartitionT, Void, Void, Void, SortT>> keys) {
         return deleteBatchExtendedAsync(buildDeleteBatchesFromKeys(keys));
     }
 
@@ -876,8 +890,10 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param batches A list of the batches of items to delete
      * @return A future containing the unprocessed items and the consumed capacity
      */
-    private CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, SortT>>> deleteBatchExtendedAsync(List<Map<String, List<WriteRequest>>> batches) {
-        var futureResult = CompletableFuture.completedFuture(new ExtendedBatchResult<T, Key<PartitionT, SortT>>());
+    private CompletableFuture<ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>>
+            deleteBatchExtendedAsync(List<Map<String, List<WriteRequest>>> batches) {
+        var futureResult = CompletableFuture.completedFuture(
+                new ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>>());
         for (var batch : batches) {
             var req = BatchWriteItemRequest.builder().requestItems(batch).build();
             futureResult = futureResult.thenCombine(
@@ -894,11 +910,13 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param response The response from Dynamo
      * @return The result (after merging the data from Dynamo)
      */
-    private ExtendedBatchResult<T, Key<PartitionT, SortT>> updateBatchResultForDelete(ExtendedBatchResult<T, Key<PartitionT, SortT>> result, BatchWriteItemResponse response) {
+    private ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> updateBatchResultForDelete(
+            ExtendedBatchResult<T, Key<PartitionT, Void, Void, Void, SortT>> result, BatchWriteItemResponse response) {
         if (response.hasUnprocessedItems() && !response.unprocessedItems().isEmpty()) {
             response.unprocessedItems().get(getTableName()).stream()
                 .map(writeRequest -> writeRequest.deleteRequest().key())
-                .map(m -> new Key<>(getPartitionValue(m.get(getPartitionKeyAttribute())), getSortValue(m.get(getSortKeyAttribute()))))
+                .map(m -> Key.of(getPartitionValue1(m.get(getPartitionKeyAttributes().get(0))),
+                        getSortValue(m.get(getSortKeyAttribute()))))
                 .forEach(k -> result.getUnprocessedValues().add(k));
         }
         if (response.hasConsumedCapacity()) {
@@ -1082,7 +1100,8 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
             var attributeName = entry.getKey();
             // Do not add the attribute to the value map if it is one of the keys,
             // or if that attribute is specifically passed in in the expression map
-            if (!attributeName.equals(getPartitionKeyAttribute()) && !attributeName.equals(getSortKeyAttribute())
+            if (!attributeName.equals(getPartitionKeyAttributes().get(0))
+                    && !attributeName.equals(getSortKeyAttribute())
                     && (expressions == null || !expressions.containsKey(attributeName))) {
                 var valueRef = ":" + attributeName;
                 expressionsCopy.put(attributeName, valueRef);
@@ -1095,7 +1114,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         if (attributeNames != null) {
             namesCopy.putAll(attributeNames);
         }
-        return buildUpdateItemRequest(getPartitionValue(item), getSortValue(item), condition, expressionsCopy, valuesCopy, namesCopy, returnPrevious);
+        return buildUpdateItemRequest(getPartitionValue1(item), getSortValue(item), condition, expressionsCopy, valuesCopy, namesCopy, returnPrevious);
     }
 
     /**
@@ -1187,16 +1206,51 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * Get an index. Usually you don't want to call this; for each index in your table, a function "getXxxIndex" function
      * will be added that will return the index more easily.
      * @param name The name of this index
-     * @param secondaryPartitionClass The class of the index partition key or null
+     * @param secondaryPartition1Class The class of the index's first partition key, or null to skip the check
+     * @param secondaryPartition2TClass The class of the index's second partition key, Void if it has only one,
+     *        or null to skip the check
+     * @param secondaryPartition3TClass The class of the index's third partition key, Void if it has fewer than
+     *        three, or null to skip the check
+     * @param secondaryPartition4TClass The class of the index's fourth partition key, Void if it has fewer than
+     *        four, or null to skip the check
      * @param secondarySortClass The class of the index sort key or null
-     * @param <SecondaryPartitionT> The type of the index partition key
+     * @param <SecondaryPartition1T> The type of the index's first partition key
+     * @param <SecondaryPartition2T> The type of the index's second partition key, or Void if it has only one
+     * @param <SecondaryPartition3T> The type of the index's third partition key, or Void if it has fewer than three
+     * @param <SecondaryPartition4T> The type of the index's fourth partition key, or Void if it has fewer than four
      * @param <SecondarySortT> The type of the index sort key
      * @return The index
      * @throws IllegalArgumentException If the partition classes are provided but do not match the index, or if there
      *         is no index by the provided name
      */
-    public abstract <SecondaryPartitionT, SecondarySortT> DynamoIndex<T, SecondaryPartitionT, SecondarySortT> getIndex(
-        String name, Class<SecondaryPartitionT> secondaryPartitionClass, Class<SecondarySortT> secondarySortClass);
+    public abstract <SecondaryPartition1T, SecondaryPartition2T, SecondaryPartition3T, SecondaryPartition4T,
+            SecondarySortT>
+            DynamoIndex<T, SecondaryPartition1T, SecondaryPartition2T, SecondaryPartition3T, SecondaryPartition4T,
+            SecondarySortT> getIndex(
+        String name, Class<SecondaryPartition1T> secondaryPartition1Class,
+        Class<SecondaryPartition2T> secondaryPartition2TClass,
+        Class<SecondaryPartition3T> secondaryPartition3TClass,
+        Class<SecondaryPartition4T> secondaryPartition4TClass,
+        Class<SecondarySortT> secondarySortClass);
+
+    /**
+     * Describe a list of key classes for the message getIndex() throws when the caller's classes do not match the
+     * index. A null entry means the caller did not ask us to check that key, and reads as "any".
+     *
+     * <p>This exists for the generated implementations of {@link #getIndex}; applications have no reason to call it.
+     * @param classes The key classes, in the order getIndex() takes them
+     * @return The class names, comma separated
+     */
+    protected static String keyClassNames(Class<?>... classes) {
+        var builder = new StringBuilder();
+        for (var i = 0; i < classes.length; i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            builder.append(classes[i] == null ? "any" : classes[i].getSimpleName());
+        }
+        return builder.toString();
+    }
 
     /**
      * Build a list of maps from table name to a list of keys. Each map will have at most MAX_ITEMS_PER_BATCH items.
@@ -1210,7 +1264,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
         for (int offset = 0; offset < numItems; offset += MAX_ITEMS_PER_BATCH) {
             result.add(Collections.singletonMap(getTableName(),
                     itemList.subList(offset, Math.min(numItems, offset + MAX_ITEMS_PER_BATCH)).stream()
-                    .map(item -> WriteRequest.builder().deleteRequest(DeleteRequest.builder().key(keysToMap(getPartitionValue(item), getSortValue(item))).build()).build())
+                    .map(item -> WriteRequest.builder().deleteRequest(DeleteRequest.builder().key(keysToMap(getPartitionValue1(item), getSortValue(item))).build()).build())
                     .collect(Collectors.toList())));
         }
         return result;
@@ -1221,14 +1275,15 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param keys A list of keys
      * @return A list of batches to submit for processing
      */
-    private List<Map<String, List<WriteRequest>>> buildDeleteBatchesFromKeys(Collection<Key<PartitionT, SortT>> keys) {
+    private List<Map<String, List<WriteRequest>>> buildDeleteBatchesFromKeys(
+            Collection<Key<PartitionT, Void, Void, Void, SortT>> keys) {
         var keyList = getListFromCollection(keys);
         int numItems = keys.size();
         var result = new ArrayList<Map<String, List<WriteRequest>>>((numItems + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH);
         for (int offset = 0; offset < numItems; offset += MAX_ITEMS_PER_BATCH) {
             result.add(Collections.singletonMap(getTableName(),
                     keyList.subList(offset, Math.min(numItems, offset + MAX_ITEMS_PER_BATCH)).stream()
-                    .map(key -> WriteRequest.builder().deleteRequest(DeleteRequest.builder().key(keysToMap(key.getPartition(), key.getSort())).build()).build())
+                    .map(key -> WriteRequest.builder().deleteRequest(DeleteRequest.builder().key(keysToMap(key.getPartition1(), key.getSort())).build()).build())
                     .collect(Collectors.toList())));
         }
         return result;
@@ -1239,7 +1294,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      * @param value The attribute value
      * @return The partition value
      */
-    protected abstract PartitionT getPartitionValue(AttributeValue value);
+    protected abstract PartitionT getPartitionValue1(AttributeValue value);
 
     /**
      * Extract a sort value from an attribute value
@@ -1256,9 +1311,45 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
      */
     protected final Map<String, AttributeValue> keysToMap(PartitionT partitionValue, SortT sortValue) {
         return sortValue == null
-               ? Collections.singletonMap(getPartitionKeyAttribute(), partitionValueToAttributeValue(partitionValue))
-               : Map.of(getPartitionKeyAttribute(), partitionValueToAttributeValue(partitionValue),
+               ? Collections.singletonMap(getPartitionKeyAttributes().get(0), partitionValue1ToAttributeValue(partitionValue))
+               : Map.of(getPartitionKeyAttributes().get(0), partitionValue1ToAttributeValue(partitionValue),
                    getSortKeyAttribute(), sortValueToAttributeValue(sortValue));
+    }
+
+    @Override
+    @Deprecated
+    public final AttributeValue partitionValue2ToAttributeValue(Void value) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Deprecated
+    public final AttributeValue partitionValue3ToAttributeValue(Void value) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Deprecated
+    public final AttributeValue partitionValue4ToAttributeValue(Void value) {
+        throw new UnsupportedOperationException();
+    }
+
+    /* Tables always have exactly one partition key, so partitions 2-4 are always absent. These must return null
+       rather than throw: Query.partitionItem reads all four from the index and relies on null to mean "not used". */
+
+    @Override
+    public final Void getPartitionValue2(T value) {
+        return null;
+    }
+
+    @Override
+    public final Void getPartitionValue3(T value) {
+        return null;
+    }
+
+    @Override
+    public final Void getPartitionValue4(T value) {
+        return null;
     }
 
     /**

@@ -103,12 +103,14 @@ class MockDynamoClient implements DynamoDbClient {
      * @param indexInstance The index
      * @param items Optional collection of items to add to the table
      */
-    MockDynamoClient(DynamoTable<?, ?, ?> tableInstance, DynamoIndex<?, ?, ?> indexInstance, Collection<Map<String, AttributeValue>> items) {
+    MockDynamoClient(DynamoTable<?, ?, ?> tableInstance,
+                     DynamoIndex<?, ?, ?, ?, ?, ?> indexInstance, Collection<Map<String, AttributeValue>> items) {
         this.tableInstance = tableInstance;
         indexName = indexInstance.getIndexName();
+        var tablePartitionKey = tableInstance.getPartitionKeyAttributes().get(0);
         store = new InMemoryDynamoStore(indexInstance, tableInstance.getSortKeyAttribute() == null
-                                                       ? List.of(tableInstance.getPartitionKeyAttribute())
-                                                       : List.of(tableInstance.getPartitionKeyAttribute(), tableInstance.getSortKeyAttribute()), items);
+                ? List.of(tablePartitionKey)
+                : List.of(tablePartitionKey, tableInstance.getSortKeyAttribute()), items);
     }
 
     /**
@@ -153,7 +155,7 @@ class MockDynamoClient implements DynamoDbClient {
         if (!Objects.equals(indexName, request.indexName())) {
             return children.computeIfAbsent(request.indexName(), this::buildIndex).query(request);
         }
-        var partitionValue = request.expressionAttributeValues().get(":ctdynamo_p");
+        var partitionValue = getPartitionValues(request);
         var s1 = request.expressionAttributeValues().get(":ctdynamo_s1");
         var s2 = request.expressionAttributeValues().get(":ctdynamo_s2");
         Collection<Map<String, AttributeValue>> rawItems;
@@ -191,12 +193,30 @@ class MockDynamoClient implements DynamoDbClient {
     }
 
     /**
+     * Pull the partition values out of a query request. ctDynamo numbers them ":ctdynamo_p1" through ":ctdynamo_p4",
+     * and supplies exactly as many as the index has partition keys.
+     * @param request The query request
+     * @return The partition values, in order
+     */
+    private List<AttributeValue> getPartitionValues(QueryRequest request) {
+        var values = request.expressionAttributeValues();
+        var result = new ArrayList<AttributeValue>();
+        for (var i = 1; ; i++) {
+            var value = values.get(":ctdynamo_p" + i);
+            if (value == null) {
+                return result;
+            }
+            result.add(value);
+        }
+    }
+
+    /**
      * Return a collection with all values whose sort key have the given prefix
      * @param partitionValue The partition to search
      * @param s1 The prefix of the sort key
      * @return The collection of data
      */
-    private Collection<Map<String, AttributeValue>> getByPrefix(AttributeValue partitionValue, AttributeValue s1) {
+    private Collection<Map<String, AttributeValue>> getByPrefix(List<AttributeValue> partitionValue, AttributeValue s1) {
         // For a prefix, we use the prefix as the inclusive low value, then raise the prefix's last character by
         // one code point and use that as the exclsive high value. This will fail if the last character of the
         // prefix is 0xffff. So don't use strings terminating in unicode 0xffff as prefixes during unit test, OK?
@@ -219,7 +239,8 @@ class MockDynamoClient implements DynamoDbClient {
      * @return The matching data
      * @throws RuntimeException If we cannot parse the key expression
      */
-    private Collection<Map<String, AttributeValue>> getByComparator(AttributeValue partitionValue, AttributeValue s1, String conditionExpression) {
+    private Collection<Map<String, AttributeValue>> getByComparator(
+            List<AttributeValue> partitionValue, AttributeValue s1, String conditionExpression) {
         var opMatcher = KEY_EXPRESSION_OP.matcher(conditionExpression);
         if (!opMatcher.matches()) {
             throw new RuntimeException("Cannot parse key expression: " + conditionExpression);
@@ -245,7 +266,8 @@ class MockDynamoClient implements DynamoDbClient {
      * @param s2 The upper bound
      * @return The matching data
      */
-    private Collection<Map<String, AttributeValue>> getByBetween(AttributeValue partitionValue, AttributeValue s1, AttributeValue s2) {
+    private Collection<Map<String, AttributeValue>> getByBetween(
+            List<AttributeValue> partitionValue, AttributeValue s1, AttributeValue s2) {
         // Must be a "between" since we have two sort values
         if (AttributeComparator.INSTANCE.compare(s1, s2) > 0) {
             return Collections.emptyList();
@@ -515,7 +537,8 @@ class MockDynamoClient implements DynamoDbClient {
      */
     private MockDynamoClient buildIndex(String name) {
         var allObjects = store.getItems().collect(Collectors.toList());
-        return new MockDynamoClient(tableInstance, tableInstance.getIndex(name, null, null), allObjects);
+        return new MockDynamoClient(tableInstance, tableInstance.getIndex(name, null, null, null, null, null),
+            allObjects);
     }
 
     @Override
@@ -530,7 +553,8 @@ class MockDynamoClient implements DynamoDbClient {
      */
     public synchronized Map<String, AttributeValue> toKey(Map<String, AttributeValue> item) {
         return item.entrySet().stream()
-                   .filter(e -> e.getKey().equals(tableInstance.getPartitionKeyAttribute()) || e.getKey().equals(tableInstance.getSortKeyAttribute()))
+                   .filter(e -> e.getKey().equals(tableInstance.getPartitionKeyAttributes().get(0))
+                                    || e.getKey().equals(tableInstance.getSortKeyAttribute()))
                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

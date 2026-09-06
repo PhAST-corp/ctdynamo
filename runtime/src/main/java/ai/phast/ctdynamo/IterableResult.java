@@ -16,7 +16,7 @@ import java.util.stream.StreamSupport;
 public abstract class IterableResult<T> implements Iterable<T> {
 
     /** The index. Used to decode result objects */
-    private final DynamoIndex<T, ?, ?> index;
+    private final DynamoIndex<T, ?, ?, ?, ?, ?> index;
 
     /** The maximum number of items that we will return. Negative means unlimited */
     private final int limit;
@@ -38,7 +38,7 @@ public abstract class IterableResult<T> implements Iterable<T> {
      * @param index The index that the scan or query was performed on
      * @param limit The maximum number of items to return
      */
-    IterableResult(DynamoIndex<T, ?, ?> index, int limit) {
+    IterableResult(DynamoIndex<T, ?, ?, ?, ?, ?> index, int limit) {
         this.index = index;
         this.limit = limit;
     }
@@ -47,7 +47,7 @@ public abstract class IterableResult<T> implements Iterable<T> {
      * Get our index. Package protected; applications should not use this, it is used internally to decode result objects.
      * @return The index
      */
-    final DynamoIndex<T, ?, ?> getIndex() {
+    final DynamoIndex<T, ?, ?, ?, ?, ?> getIndex() {
         return index;
     }
 

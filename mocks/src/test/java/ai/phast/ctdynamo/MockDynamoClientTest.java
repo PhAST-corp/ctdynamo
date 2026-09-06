@@ -288,7 +288,7 @@ public class MockDynamoClientTest {
         table.putBatch(List.of(new NoSortKey("d", 15, 100, t2),
             new NoSortKey("b", 7, 15, t2),
             new NoSortKey("e", 5, 15, t2)));
-        table.deleteBatchByKey(List.of(new Key<>("e", null), new Key<>("a", null)));
+        table.deleteBatchByKey(List.of(Key.of("e", null), Key.of("a", null)));
 
         // Verify
         Assertions.assertEquals(List.of(), i1.query(5).invoke().stream().collect(Collectors.toList()));
@@ -309,11 +309,11 @@ public class MockDynamoClientTest {
                            .collect(Collectors.toList()));
         table.deleteBatchByKey(IntStream.range(0, 123)
                                    .filter(i -> (i % 2) == 0)
-                                   .mapToObj(i -> new Key<>("p" + (i % 11), "s" + (i % 13)))
+                                   .mapToObj(i -> Key.of("p" + (i % 11), "s" + (i % 13)))
                                    .collect(Collectors.toList()));
         var result = table.getBatchByKeyExtended(IntStream.range(0, 123)
                                                      .filter(i -> (i % 3) == 0)
-                                                     .mapToObj(i -> new Key<>("p" + (i % 11), "s" + (i % 13)))
+                                                     .mapToObj(i -> Key.of("p" + (i % 11), "s" + (i % 13)))
                                                      .collect(Collectors.toList()), false);
 
         // Verify
@@ -325,7 +325,7 @@ public class MockDynamoClientTest {
         Assertions.assertEquals(
             IntStream.range(0, 123)
                 .filter(i -> (i % 3) == 0 && (i % 2) == 0)
-                .mapToObj(i -> new Key<>("p" + (i % 11), "s" + (i % 13)))
+                .mapToObj(i -> Key.of("p" + (i % 11), "s" + (i % 13)))
                 .collect(Collectors.toSet()),
             new HashSet<>(result.getUnprocessedValues()));
         Assertions.assertEquals(IntStream.range(0, 123)
@@ -573,7 +573,7 @@ public class MockDynamoClientTest {
 
         // Verify
         Assertions.assertEquals("color5", colorIndex.getIndexName());
-        Assertions.assertEquals(colorIndex.getClass(), table.getIndex("color5", String.class, Float.class).getClass());
+        Assertions.assertEquals(colorIndex.getClass(), table.getIndex("color5", String.class, null, null, null, Float.class).getClass());
     }
 
     private AttributeValue av(int value) {

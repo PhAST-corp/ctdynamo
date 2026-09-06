@@ -31,7 +31,7 @@ class QueryResult<T> extends PagedResult<T, QueryResponse> {
      * @param isFiltered A flag telling us whether or not the results may be filtered - that is, whether or not
      *     reads may be ignored
      */
-    QueryResult(DynamoIndex<T, ?, ?> index, QueryRequest.Builder queryBuilder, int limit, boolean prefetch,
+    QueryResult(DynamoIndex<T, ?, ?, ?, ?, ?> index, QueryRequest.Builder queryBuilder, int limit, boolean prefetch,
                 int readLimit, int pageSize, boolean isFiltered) {
         super(index, limit, prefetch, pageSize, readLimit, isFiltered);
         this.queryBuilder = queryBuilder;

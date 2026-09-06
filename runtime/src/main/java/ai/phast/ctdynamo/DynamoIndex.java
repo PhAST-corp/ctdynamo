@@ -4,17 +4,22 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 /**
  * The base class for all global secondary indexes and local secondary indexes. Tables also extend this class
  * @param <T> The data type of item stored in this index
- * @param <PartitionT> The type of the partition key for this index
+ * @param <Partition1T> The type of the first partition key for this index
+ * @param <Partition2T> The type of the second partition key. An index may have up to four partition keys; if it has
+ *               fewer than two, then Partition2T will be Void
+ * @param <Partition3T> The type of the third partition key, or Void if this index has fewer than three
+ * @param <Partition4T> The type of the fourth partition key, or Void if this index has fewer than four
  * @param <SortT> The type of the sort key for this index. Tables do not require sort keys; if this table has none,
  *               then SortT will be Void
  */
-public abstract class DynamoIndex<T, PartitionT, SortT> {
+public abstract class DynamoIndex<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> {
 
     /** The name of the table that this index is in */
     private final String tableName;
@@ -22,8 +27,8 @@ public abstract class DynamoIndex<T, PartitionT, SortT> {
     /** The name of the index. null if this is a table */
     private final String indexName;
 
-    /** The name of the partition key attribute for this index */
-    private final String partitionKeyAttribute;
+    /** The names of the partition key attributes for this index, in key order. Never empty */
+    private final List<String> partitionKeyAttributes;
 
     /** The name of the sort key attribute for this index. null if this is a table with no sort key */
     private final String sortKeyAttribute;
@@ -40,12 +45,13 @@ public abstract class DynamoIndex<T, PartitionT, SortT> {
      * @param asyncClient The async client
      * @param tableName The name of the table
      * @param indexName The name of the index
-     * @param partitionKeyAttribute The name of the partition key attribute
+     * @param partitionKeyAttributes The names of the partition key attributes. This should be an immutable list
      * @param sortKeyAttribute The name of the sort key attribute, or null if this is an index with no sort key
      * @throws NullPointerException If both client and asyncClient are null
      */
     public DynamoIndex(DynamoDbClient client, DynamoDbAsyncClient asyncClient,
-                       String tableName, String indexName, String partitionKeyAttribute, String sortKeyAttribute) {
+                       String tableName, String indexName, List<String> partitionKeyAttributes,
+                       String sortKeyAttribute) {
         if (client == null && asyncClient == null) {
             throw new NullPointerException("At least one of client or asyncClient must be non-null");
         }
@@ -53,7 +59,7 @@ public abstract class DynamoIndex<T, PartitionT, SortT> {
         this.asyncClient = asyncClient;
         this.tableName = Objects.requireNonNull(tableName, "tableName must not be null");
         this.indexName = indexName;
-        this.partitionKeyAttribute = partitionKeyAttribute;
+        this.partitionKeyAttributes = partitionKeyAttributes;
         this.sortKeyAttribute = sortKeyAttribute;
     }
 
@@ -90,11 +96,12 @@ public abstract class DynamoIndex<T, PartitionT, SortT> {
     }
 
     /**
-     * Get the name of our partition key attribute
-     * @return The name of our partition key attribute
+     * Get the names of our partition key attributes, in key order. A table always has exactly one; an index may have
+     * up to four. The size of this list is what tells you how many partition values an index expects.
+     * @return The names of our partition key attributes, in key order
      */
-    protected final String getPartitionKeyAttribute() {
-        return partitionKeyAttribute;
+    protected final List<String> getPartitionKeyAttributes() {
+        return partitionKeyAttributes;
     }
 
     /**
@@ -106,11 +113,33 @@ public abstract class DynamoIndex<T, PartitionT, SortT> {
     }
 
     /**
-     * Read the partition value from an item
+     * Read the first partition value from an item
      * @param value The item
-     * @return The partition key of item
+     * @return The first partition key of item
      */
-    public abstract PartitionT getPartitionValue(T value);
+    public abstract Partition1T getPartitionValue1(T value);
+
+    /**
+     * Read the second partition value from an item
+     * @param value The item
+     * @return The second partition key of item, or null if this index has only one partition key. Callers rely on
+     *         that null to work out how many partition keys an index actually has
+     */
+    public abstract Partition2T getPartitionValue2(T value);
+
+    /**
+     * Read the third partition value from an item
+     * @param value The item
+     * @return The third partition key of item, or null if this index has fewer than three partition keys
+     */
+    public abstract Partition3T getPartitionValue3(T value);
+
+    /**
+     * Read the fourth partition value from an item
+     * @param value The item
+     * @return The fourth partition key of item, or null if this index has fewer than four partition keys
+     */
+    public abstract Partition4T getPartitionValue4(T value);
 
     /**
      * Read the sort value from an item
@@ -124,37 +153,125 @@ public abstract class DynamoIndex<T, PartitionT, SortT> {
      * calling async(boolean) on the query returned)
      * @return A query for this table or index
      */
-    public Query<T, PartitionT, SortT> query() {
+    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query() {
         return new Query<>(this);
     }
 
     /**
      * Start building a query on this table or index. The query will by synchronous, and will search items with the
      * specified partition key
-     * @param partitionValue The partition value that will be searched by this query
+     * @param partition1Value The first partition value that will be searched by this query
      * @return A query for this table or index
      */
-    public Query<T, PartitionT, SortT> query(PartitionT partitionValue) {
-        return new Query<>(this).partitionValue(partitionValue);
+    public final Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query(
+            Partition1T partition1Value) {
+        return new Query<>(this).partitionValue(partition1Value, null, null, null);
     }
 
+    /**
+     * Start building a query on this table or index. The query will by synchronous, and will search items with the
+     * specified partition keys
+     * @param partition1Value The first partition value that will be searched by this query
+     * @param partition2Value The second partition value that will be searched by this query
+     * @return A query for this table or index
+     */
+    public final Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query(
+            Partition1T partition1Value,
+            Partition2T partition2Value) {
+        return new Query<>(this).partitionValue(partition1Value, partition2Value, null, null);
+    }
+    /**
+     * Start building a query on this table or index. The query will by synchronous, and will search items with the
+     * specified partition keys
+     * @param partition1Value The first partition value that will be searched by this query
+     * @param partition2Value The second partition value that will be searched by this query
+     * @param partition3Value The third partition value that will be searched by this query
+     * @return A query for this table or index
+     */
+    public final Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query(
+            Partition1T partition1Value,
+            Partition2T partition2Value,
+            Partition3T partition3Value) {
+        return new Query<>(this).partitionValue(partition1Value, partition2Value, partition3Value, null);
+    }
+    /**
+     * Start building a query on this table or index. The query will by synchronous, and will search items with the
+     * specified partition keys
+     * @param partition1Value The first partition value that will be searched by this query
+     * @param partition2Value The second partition value that will be searched by this query
+     * @param partition3Value The third partition value that will be searched by this query
+     * @param partition4Value The fourth partition value that will be searched by this query
+     * @return A query for this table or index
+     */
+    public final Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> query(
+            Partition1T partition1Value,
+            Partition2T partition2Value,
+            Partition3T partition3Value,
+            Partition4T partition4Value) {
+        return new Query<>(this).partitionValue(partition1Value, partition2Value, partition3Value, partition4Value);
+    }
     /**
      * Start building a query on this table or index. The query will be asynchronous (but that may be changed by calling
      * async(boolean) on the query returned)
      * @return A query for this table or index
      */
-    public Query<T, PartitionT, SortT> queryAsync() {
+    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync() {
         return new Query<>(this).async(true);
     }
 
     /**
      * Start building a query on this table or index. The query will by asynchronous, and will search items with the
      * specified partition key
-     * @param partitionValue The partition value that will be searched by this query
+     * @param partition1Value The first partition value that will be searched by this query
      * @return A query for this table or index
      */
-    public Query<T, PartitionT, SortT> queryAsync(PartitionT partitionValue) {
-        return new Query<>(this).partitionValue(partitionValue).async(true);
+    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync(
+            Partition1T partition1Value) {
+        return new Query<>(this).partitionValue(partition1Value, null, null, null)
+                .async(true);
+    }
+
+    /**
+     * Start building a query on this table or index. The query will by asynchronous, and will search items with the
+     * specified partition keys
+     * @param partition1Value The first partition value that will be searched by this query
+     * @param partition2Value The second partition value that will be searched by this query
+     * @return A query for this table or index
+     */
+    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync(
+            Partition1T partition1Value, Partition2T partition2Value) {
+        return new Query<>(this).partitionValue(partition1Value, partition2Value, null, null)
+                .async(true);
+    }
+
+    /**
+     * Start building a query on this table or index. The query will by asynchronous, and will search items with the
+     * specified partition keys
+     * @param partition1Value The first partition value that will be searched by this query
+     * @param partition2Value The second partition value that will be searched by this query
+     * @param partition3Value The third partition value that will be searched by this query
+     * @return A query for this table or index
+     */
+    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync(
+            Partition1T partition1Value, Partition2T partition2Value, Partition3T partition3Value) {
+        return new Query<>(this).partitionValue(partition1Value, partition2Value, partition3Value, null)
+                .async(true);
+    }
+
+    /**
+     * Start building a query on this table or index. The query will by asynchronous, and will search items with the
+     * specified partition keys
+     * @param partition1Value The first partition value that will be searched by this query
+     * @param partition2Value The second partition value that will be searched by this query
+     * @param partition3Value The third partition value that will be searched by this query
+     * @param partition4Value The fourth partition value that will be searched by this query
+     * @return A query for this table or index
+     */
+    public Query<T, Partition1T, Partition2T, Partition3T, Partition4T, SortT> queryAsync(
+            Partition1T partition1Value, Partition2T partition2Value, Partition3T partition3Value,
+            Partition4T partition4Value) {
+        return new Query<>(this).partitionValue(partition1Value, partition2Value, partition3Value, partition4Value)
+                .async(true);
     }
 
     /**
@@ -174,11 +291,38 @@ public abstract class DynamoIndex<T, PartitionT, SortT> {
     }
 
     /**
-     * Convert a partition value for this index to an AttributeValue
-     * @param partitionValue The partition value
+     * Convert the first partition value for this index to an AttributeValue
+     * @param partitionValue The first partition value
      * @return The equivalent AttributeValue
      */
-    protected abstract AttributeValue partitionValueToAttributeValue(PartitionT partitionValue);
+    protected abstract AttributeValue partitionValue1ToAttributeValue(Partition1T partitionValue);
+
+    /**
+     * Convert the second partition value for this index to an AttributeValue
+     * @param partitionValue The second partition value
+     * @return The equivalent AttributeValue
+     * @throws UnsupportedOperationException If this index has fewer than 2 partition keys, in which case
+     *         Partition2T is Void and there is no value to convert
+     */
+    protected abstract AttributeValue partitionValue2ToAttributeValue(Partition2T partitionValue);
+
+    /**
+     * Convert the third partition value for this index to an AttributeValue
+     * @param partitionValue The third partition value
+     * @return The equivalent AttributeValue
+     * @throws UnsupportedOperationException If this index has fewer than 3 partition keys, in which case
+     *         Partition3T is Void and there is no value to convert
+     */
+    protected abstract AttributeValue partitionValue3ToAttributeValue(Partition3T partitionValue);
+
+    /**
+     * Convert the fourth partition value for this index to an AttributeValue
+     * @param partitionValue The fourth partition value
+     * @return The equivalent AttributeValue
+     * @throws UnsupportedOperationException If this index has fewer than 4 partition keys, in which case
+     *         Partition4T is Void and there is no value to convert
+     */
+    protected abstract AttributeValue partitionValue4ToAttributeValue(Partition4T partitionValue);
 
     /**
      * Convert a sort value for this index to an AttributeValue

@@ -64,7 +64,7 @@ abstract class PagedResult<T, ResponseT> extends IterableResult<T> {
      * @param isFiltered A flag telling us whether or not the results may be filtered - that is, whether or not
      *     reads may be ignored
      */
-    PagedResult(DynamoIndex<T, ?, ?> index, int limit, boolean prefetch, int pageSize, int readLimit,
+    PagedResult(DynamoIndex<T, ?, ?, ?, ?, ?> index, int limit, boolean prefetch, int pageSize, int readLimit,
                 boolean isFiltered) {
         super(index, limit);
         this.prefetch = prefetch;

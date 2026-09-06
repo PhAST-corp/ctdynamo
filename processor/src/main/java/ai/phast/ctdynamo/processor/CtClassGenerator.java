@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -269,19 +270,24 @@ public class CtClassGenerator {
         var classBuilder = TypeSpec.classBuilder(itemType.getSimpleName() + "DynamoTable")
                 .addModifiers(Modifier.PUBLIC)
                 .superclass(ParameterizedTypeName.get(tableType));
+        // A table always has exactly one partition key. DynamoTable itself implements partitions 2-4 as final, so we
+        // must not emit them here - only the index inner classes below carry the extra partition slots.
         classBuilder.addMethod(buildTableConstructor(true, true))
                 .addMethod(buildTableConstructor(true, false))
                 .addMethod(buildTableConstructor(false, true))
-                .addMethod(buildGetKeyMethod("getPartitionValue", partitionKeyAttribute, true))
-                .addMethod(buildGetKeyMethod("getSortValue", sortKeyAttribute, true))
-                .addMethod(buildGetKeyMethod("getPartitionValue", partitionKeyAttribute, false))
-                .addMethod(buildGetKeyMethod("getSortValue", sortKeyAttribute, false))
-                .addMethod(buildKeyToAttributeValueMethod("partitionValueToAttributeValue", partitionKeyAttribute))
-                .addMethod(buildKeyToAttributeValueMethod("sortValueToAttributeValue", sortKeyAttribute))
+                // The item and AttributeValue forms of each getter are overloads, so keep them next to each other
+                .addMethod(buildGetKeyMethod("getPartitionValue1", partitionKeyAttribute, true, "partition"))
+                .addMethod(buildGetKeyMethod("getPartitionValue1", partitionKeyAttribute, false, "partition"))
+                .addMethod(buildGetKeyMethod("getSortValue", sortKeyAttribute, true, "sort"))
+                .addMethod(buildGetKeyMethod("getSortValue", sortKeyAttribute, false, "sort"))
+                .addMethod(buildKeyToAttributeValueMethod("partitionValue1ToAttributeValue", partitionKeyAttribute,
+                    "This table has no partition key"))
+                .addMethod(buildKeyToAttributeValueMethod("sortValueToAttributeValue", sortKeyAttribute,
+                    "This table has no sort key"))
                 .addMethod(buildEncoderMethod(false))
                 .addMethod(buildDecoderMethod(false))
-                .addMethod(buildGetExclusiveStartKeyMethod(partitionKeyAttribute, sortKeyAttribute))
-                .addMethod(buildDecodeExclusiveStartMethod(partitionKeyAttribute, sortKeyAttribute))
+                .addMethod(buildGetExclusiveStartKeyMethod(List.of(partitionKeyAttribute), sortKeyAttribute))
+                .addMethod(buildDecodeExclusiveStartMethod(List.of(partitionKeyAttribute), sortKeyAttribute))
                 .addMethod(buildGetIndexMethod());
 
         var qualifiedName = itemType.getQualifiedName().toString();
@@ -297,11 +303,7 @@ public class CtClassGenerator {
             // class, so we have to instead return the parameterized DynamoIndex class that the real index class extends.
             var indexType = typeTools.types.getDeclaredType(
                 (TypeElement)typeTools.types.asElement(typeTools.indexMirror),  // DynamoIndex<
-                typeTools.types.getDeclaredType(itemType),                        //     ItemType,
-                attributes.get(metadata.getPartitonAttribute()).boxedReturnType,  //     PartitionType,
-                metadata.getSortAttribute() == null
-                    ? typeTools.voidMirror
-                    : attributes.get(metadata.getSortAttribute()).boxedReturnType);  //     SortType>
+                buildIndexTypeArguments(metadata));                               //     ItemType, P1..P4, SortType>
 
             classBuilder.addType(buildIndexInnerClass(indexName, indexType));
             classBuilder.addMethod(MethodSpec.methodBuilder("get" + indexNameToClassName(indexName))
@@ -318,6 +320,35 @@ public class CtClassGenerator {
     }
 
     /**
+     * Build the type arguments for the {@link DynamoIndex} that an index extends. That is the item type, then all
+     * four partition types (unused slots are Void), then the sort type (Void if the index has no sort key).
+     * @param metadata The metadata of the index
+     * @return The type arguments, in declaration order
+     */
+    private TypeMirror[] buildIndexTypeArguments(IndexMetadata metadata) {
+        var result = new TypeMirror[IndexMetadata.MAX_PARTITION_KEYS + 2];
+        result[0] = typeTools.types.getDeclaredType(itemType);
+        for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
+            result[position + 1] = getIndexPartitionType(metadata, position);
+        }
+        result[result.length - 1] = metadata.getSortAttribute() == null
+            ? typeTools.voidMirror
+            : attributes.get(metadata.getSortAttribute()).boxedReturnType;
+        return result;
+    }
+
+    /**
+     * Get the type of one of an index's partition keys
+     * @param metadata The metadata of the index
+     * @param position The zero-based position of the partition key
+     * @return The boxed type of that partition key, or Void if the index has no partition key at that position
+     */
+    private TypeMirror getIndexPartitionType(IndexMetadata metadata, int position) {
+        var attribute = metadata.getPartitionAttribute(position);
+        return attribute == null ? typeTools.voidMirror : attributes.get(attribute).boxedReturnType;
+    }
+
+    /**
      * Build an inner class that extends {@link DynamoIndex}
      * @param indexName The name of the index
      * @param indexType The type that the index extends
@@ -326,33 +357,49 @@ public class CtClassGenerator {
      */
     private TypeSpec buildIndexInnerClass(String indexName, DeclaredType indexType) throws CtException {
         var metadata = indexes.get(indexName);
-        if (metadata.getPartitonAttribute() == null) {
+        var partitionAttributes = metadata.getPartitionAttributes();
+        if (partitionAttributes.isEmpty()) {
             throw new CtException("Index " + indexName + " has no partition key", metadata.getDeclaringElement());
         }
         var constructorBuilder = MethodSpec.constructorBuilder()
                 .addParameter(DynamoDbClient.class, "client")
                 .addParameter(DynamoDbAsyncClient.class, "asyncClient")
                 .addParameter(String.class, "tableName");
-        if (metadata.getSortAttribute() == null) {
-            constructorBuilder.addStatement("super(client, asyncClient, tableName, $S, $S, null)",
-                indexName, metadata.getPartitonAttribute());
-        } else {
-            constructorBuilder.addStatement("super(client, asyncClient, tableName, $S, $S, $S)",
-                indexName, metadata.getPartitonAttribute(), metadata.getSortAttribute());
+        // The runtime reads the partition attribute names positionally, so this list must be in "order" order
+        var partitionList = CodeBlock.builder().add("$T.of(", List.class);
+        for (var position = 0; position < partitionAttributes.size(); position++) {
+            partitionList.add(position == 0 ? "$S" : ", $S", partitionAttributes.get(position));
         }
-        var constructor = constructorBuilder.build();
+        partitionList.add(")");
+        if (metadata.getSortAttribute() == null) {
+            constructorBuilder.addStatement("super(client, asyncClient, tableName, $S, $L, null)",
+                indexName, partitionList.build());
+        } else {
+            constructorBuilder.addStatement("super(client, asyncClient, tableName, $S, $L, $S)",
+                indexName, partitionList.build(), metadata.getSortAttribute());
+        }
         var classBuilder = TypeSpec.classBuilder(indexNameToClassName(indexName))
                 .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                 .superclass(ParameterizedTypeName.get(indexType))
-                .addMethod(constructor)
-                .addMethod(buildKeyToAttributeValueMethod("partitionValueToAttributeValue", metadata.getPartitonAttribute()))
-                .addMethod(buildKeyToAttributeValueMethod("sortValueToAttributeValue", metadata.getSortAttribute()))
-                .addMethod(buildGetKeyMethod("getPartitionValue", metadata.getPartitonAttribute(), true))
-                .addMethod(buildGetKeyMethod("getSortValue", metadata.getSortAttribute(), true))
+                .addMethod(constructorBuilder.build());
+        // Partition slots past the end of this index are still abstract in DynamoIndex, so every index has to
+        // implement all four. The unused ones take/return Void: the getters return null, which is how the runtime
+        // recognizes that an index has fewer than four partition keys, and the converters are never called.
+        for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
+            var attribute = metadata.getPartitionAttribute(position);
+            classBuilder.addMethod(buildKeyToAttributeValueMethod(
+                    "partitionValue" + (position + 1) + "ToAttributeValue", attribute,
+                    "Index " + indexName + " has no partition key " + (position + 1)))
+                .addMethod(buildGetKeyMethod("getPartitionValue" + (position + 1), attribute, true,
+                    "partition " + (position + 1)));
+        }
+        classBuilder.addMethod(buildKeyToAttributeValueMethod("sortValueToAttributeValue",
+                    metadata.getSortAttribute(), "Index " + indexName + " has no sort key"))
+                .addMethod(buildGetKeyMethod("getSortValue", metadata.getSortAttribute(), true, "sort"))
                 .addMethod(buildEncoderMethod(false))
                 .addMethod(buildDecoderMethod(false))
-                .addMethod(buildGetExclusiveStartKeyMethod(metadata.getPartitonAttribute(), metadata.getSortAttribute()))
-                .addMethod(buildDecodeExclusiveStartMethod(metadata.getPartitonAttribute(), metadata.getSortAttribute()));
+                .addMethod(buildGetExclusiveStartKeyMethod(partitionAttributes, metadata.getSortAttribute()))
+                .addMethod(buildDecodeExclusiveStartMethod(partitionAttributes, metadata.getSortAttribute()));
         return classBuilder.build();
     }
 
@@ -480,8 +527,17 @@ public class CtClassGenerator {
         var secondaryPartitionKeyAnnotation = declaringElement.getAnnotation(DynamoSecondaryPartitionKey.class);
         if (secondaryPartitionKeyAnnotation != null) {
             annotationFound = true;
-            for (var indexName : secondaryPartitionKeyAnnotation.value()) {
-                indexes.computeIfAbsent(indexName, index -> new IndexMetadata()).setPartitonAttribute(attributeName, declaringElement);
+            var indexNames = secondaryPartitionKeyAnnotation.value();
+            var orders = secondaryPartitionKeyAnnotation.order();
+            // An empty order array means "position 1 in every index"; otherwise it pairs up with value() by position
+            if (orders.length != 0 && orders.length != indexNames.length) {
+                throw new CtException(DynamoSecondaryPartitionKey.class.getSimpleName() + " order must have one entry"
+                    + " per index name, or be omitted: got " + orders.length + " order(s) for " + indexNames.length
+                    + " index name(s)", declaringElement);
+            }
+            for (var i = 0; i < indexNames.length; i++) {
+                indexes.computeIfAbsent(indexNames[i], index -> new IndexMetadata())
+                    .setPartitionAttribute(attributeName, orders.length == 0 ? 1 : orders[i], declaringElement);
             }
         }
         var secondarySortKeyAnnotation = declaringElement.getAnnotation(DynamoSecondarySortKey.class);
@@ -567,10 +623,12 @@ public class CtClassGenerator {
      * @param attributeName The attribute name of this key
      * @param fromItem true if we are getting the key from a full item, false if we have the attribute value and need
      *                 to call its codec or wrap it in an AttributeValue
+     * @param keyLabel How to describe this key in error messages, e.g. "sort" or "partition 2"
      * @return The method spec
      * @throws CtException On any error building the method
      */
-    private MethodSpec buildGetKeyMethod(String getKeyName, String attributeName, boolean fromItem) throws CtException {
+    private MethodSpec buildGetKeyMethod(String getKeyName, String attributeName, boolean fromItem, String keyLabel)
+            throws CtException {
         var methodBuilder = MethodSpec.methodBuilder(getKeyName)
                 .addAnnotation(Override.class)
                 .addModifiers(fromItem ? Modifier.PUBLIC : Modifier.PROTECTED, Modifier.FINAL);
@@ -580,7 +638,7 @@ public class CtClassGenerator {
             methodBuilder.addParameter(AttributeValue.class, "value");
         }
         if (attributeName == null) {
-            // A nonexistant sort key. Return a Void that is null.
+            // A nonexistant sort key, or a partition slot this index does not use. Return a Void that is null.
             methodBuilder.returns(Void.class)
                     .addStatement("return null");
         } else {
@@ -595,9 +653,7 @@ public class CtClassGenerator {
                     methodBuilder.addStatement("$T key = value." + parameterMetadata.getGetterName() + "()", parameterMetadata.returnType)
                             .beginControlFlow("if (key == null)")
                             .addStatement("throw new $T($S)", NullPointerException.class,
-                                    "Null "
-                                            + (attributeName.equals(partitionKeyAttribute) ? "partition" : "sort")
-                                            + " key attribute \"" + attributeName + "\"")
+                                    "Null " + keyLabel + " key attribute \"" + attributeName + "\"")
                             .endControlFlow()
                             .addStatement("return key");
                 }
@@ -619,11 +675,13 @@ public class CtClassGenerator {
     /**
      * Build a method that converts a key value to an AttributeValue
      * @param methodName The name of the method we build
-     * @param attribute The attribute to build for
+     * @param attribute The attribute to build for, or null if this key does not exist
+     * @param absentMessage The message for the exception thrown when this key does not exist
      * @return A method that converts the key value to an attribute value
      * @throws CtException On any error building this method
      */
-    private MethodSpec buildKeyToAttributeValueMethod(String methodName, String attribute) throws CtException {
+    private MethodSpec buildKeyToAttributeValueMethod(String methodName, String attribute, String absentMessage)
+            throws CtException {
         var metadata = (attribute == null ? null : attributes.get(attribute));
         var methodBuilder = MethodSpec.methodBuilder(methodName)
                 .addAnnotation(Override.class)
@@ -631,8 +689,7 @@ public class CtClassGenerator {
                 .returns(AttributeValue.class);
         if (metadata == null) {
             methodBuilder.addParameter(Void.class, "value");
-            methodBuilder.addStatement("throw new $T($S)", UnsupportedOperationException.class,
-                    "This table has no sort key");
+            methodBuilder.addStatement("throw new $T($S)", UnsupportedOperationException.class, absentMessage);
         } else {
             methodBuilder.addParameter(TypeName.get(metadata.boxedReturnType), "value");
             var formatParams = new HashMap<String, Object>();
@@ -763,30 +820,66 @@ public class CtClassGenerator {
      * @throws  CtException When error while building method
      */
     private MethodSpec buildGetIndexMethod() throws CtException {
-        var partitionT = TypeVariableName.get("IndexPartitionT");
-        var sortT = TypeVariableName.get("IndexSortT");
-        var returnT = ParameterizedTypeName.get(ClassName.get(DynamoIndex.class), TypeName.get(itemType.asType()), partitionT, sortT);
+        var typeVariables = new ArrayList<TypeVariableName>(IndexMetadata.MAX_PARTITION_KEYS + 1);
+        for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
+            typeVariables.add(TypeVariableName.get("IndexPartition" + (position + 1) + "T"));
+        }
+        typeVariables.add(TypeVariableName.get("IndexSortT"));
+        var returnTypeArguments = new ArrayList<TypeName>(typeVariables.size() + 1);
+        returnTypeArguments.add(TypeName.get(itemType.asType()));
+        returnTypeArguments.addAll(typeVariables);
+        var returnT = ParameterizedTypeName.get(ClassName.get(DynamoIndex.class),
+                returnTypeArguments.toArray(new TypeName[0]));
         var builder = MethodSpec.methodBuilder("getIndex")
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Override.class)
-                .addTypeVariable(partitionT)
-                .addTypeVariable(sortT)
                 .returns(returnT)
-                .addParameter(String.class, "name")
-                .addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), partitionT), "partitionClass")
-                .addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), sortT), "sortClass");
-        switch (indexes.size()) {
-            case 0:
-                addGetIndexNoIndexesCase(builder);
-                break;
-            case 1:
-                addGetIndexOneIndexCase(builder, returnT);
-                break;
-            default:
-                addGetIndexMultipleIndexesCase(builder, returnT);
-                break;
+                .addParameter(String.class, "name");
+        for (var typeVariable : typeVariables) {
+            builder.addTypeVariable(typeVariable);
+        }
+        for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
+            builder.addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), typeVariables.get(position)),
+                "partition" + (position + 1) + "Class");
+        }
+        builder.addParameter(ParameterizedTypeName.get(ClassName.get(Class.class),
+            typeVariables.get(typeVariables.size() - 1)), "sortClass");
+        if (indexes.isEmpty()) {
+            addGetIndexNoIndexesCase(builder);
+        } else {
+            addGetIndexCase(builder, returnT);
         }
         return builder.build();
+    }
+
+    /**
+     * The names of the getIndex() parameters that carry the expected key classes, in the order they are declared
+     * @return The parameter names
+     */
+    private List<String> getIndexKeyClassParameterNames() {
+        var result = new ArrayList<String>(IndexMetadata.MAX_PARTITION_KEYS + 1);
+        for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
+            result.add("partition" + (position + 1) + "Class");
+        }
+        result.add("sortClass");
+        return result;
+    }
+
+    /**
+     * The types that an index expects for each of the getIndex() key class parameters. Unused partition slots and a
+     * missing sort key are Void, which is what the generated index class is parameterized with.
+     * @param metadata The metadata of the index
+     * @return The expected types, in the same order as {@link #getIndexKeyClassParameterNames()}
+     */
+    private List<TypeMirror> getIndexExpectedKeyTypes(IndexMetadata metadata) {
+        var result = new ArrayList<TypeMirror>(IndexMetadata.MAX_PARTITION_KEYS + 1);
+        for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
+            result.add(getIndexPartitionType(metadata, position));
+        }
+        result.add(metadata.getSortAttribute() == null
+            ? typeTools.voidMirror
+            : attributes.get(metadata.getSortAttribute()).boxedReturnType);
+        return result;
     }
 
     /**
@@ -800,106 +893,106 @@ public class CtClassGenerator {
     }
 
     /**
-     * Add the body for getIndex() in the case where the table has one index
-     * @param builder The MethodSpec builder
-     * @param returnT The return type of getIndex()
-     * @throws CtException When error while building method
-     */
-    private void addGetIndexOneIndexCase(MethodSpec.Builder builder, ParameterizedTypeName returnT) throws CtException {
-        var entry = indexes.entrySet().iterator().next();
-
-        //Keys will never be arrays, so we know they are declared types
-        if (attributes.get(entry.getValue().getPartitonAttribute()) instanceof ArrayType) {
-            throw new CtException("Array cannot be partition or sort key", entry.getValue().getDeclaringElement());
-        }
-        var partitionType = (DeclaredType)attributes.get(entry.getValue().getPartitonAttribute()).boxedReturnType;
-        var sortType = (DeclaredType)(entry.getValue().getSortAttribute() == null
-            ? typeTools.voidMirror
-            : attributes.get(entry.getValue().getSortAttribute()).boxedReturnType);
-        builder.beginControlFlow("if (name.equals($S))", entry.getKey())
-                .beginControlFlow("if (((partitionClass == null) || (partitionClass == $T.class))"
-                        + " && ((sortClass == null) || (sortClass == $T.class)))", partitionType, sortType)
-                .addStatement("return ($T)get" + indexNameToClassName(entry.getKey()) + "()", returnT)
-                .nextControlFlow("else")
-                .addStatement("throw new $T($S + partitionClass.getSimpleName() + $S + sortClass.getSimpleName())",
-                        IllegalArgumentException.class, "Incorrect key types for index " + entry.getKey() + ", expected: "
-                                + partitionType.asElement().getSimpleName()
-                                + " and "
-                                + sortType.asElement().getSimpleName()
-                                + ", got: ",
-                        " and ")
-                .endControlFlow()
-                .nextControlFlow("else")
-                .addStatement("throw new $T($S + name)", IllegalArgumentException.class, "Unknown index: ")
-                .endControlFlow()
-                .build();
-    }
-
-    /**
-     * Add the body for getIndex() in the case where there is more than one index in the table
+     * Add the body for getIndex() in the case where the table has at least one index. We look the index up by name,
+     * recording the key classes it expects, then check any classes the caller supplied against them.
      * @param builder The MethodSpec builder
      * @param returnT The return type for getIndex()
+     * @throws CtException If a key is an array, which dynamo cannot use as a key
      */
-    private void addGetIndexMultipleIndexesCase(MethodSpec.Builder builder, ParameterizedTypeName returnT) {
-        builder.addStatement("$T expectedPartitionClass", ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)))
-                .addStatement("$T expectedSortClass", ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)))
-                .addStatement("$T index", ParameterizedTypeName.get(ClassName.get(DynamoIndex.class),
-                        TypeName.get(itemType.asType()), WildcardTypeName.subtypeOf(Object.class), WildcardTypeName.subtypeOf(Object.class)))
+    private void addGetIndexCase(MethodSpec.Builder builder, ParameterizedTypeName returnT) throws CtException {
+        var wildcardClass = ParameterizedTypeName.get(ClassName.get(Class.class),
+                WildcardTypeName.subtypeOf(Object.class));
+        var parameterNames = getIndexKeyClassParameterNames();
+        var wildcardIndexArguments = new ArrayList<TypeName>(IndexMetadata.MAX_PARTITION_KEYS + 2);
+        wildcardIndexArguments.add(TypeName.get(itemType.asType()));
+        for (var i = 0; i < IndexMetadata.MAX_PARTITION_KEYS + 1; i++) {
+            wildcardIndexArguments.add(WildcardTypeName.subtypeOf(Object.class));
+        }
+        for (var parameterName : parameterNames) {
+            builder.addStatement("$T expected$L", wildcardClass, upcaseFirst("", parameterName));
+        }
+        builder.addStatement("$T index", ParameterizedTypeName.get(ClassName.get(DynamoIndex.class),
+                        wildcardIndexArguments.toArray(new TypeName[0])))
                 .beginControlFlow("switch(name)");
         for (var indexName : indexes.keySet()) {
             var metadata = indexes.get(indexName);
-            builder.addCode("case $S:\n", indexName)
-                    .addStatement("expectedPartitionClass = $T.class", attributes.get(metadata.getPartitonAttribute()).boxedReturnType)
-                    .addStatement("expectedSortClass = $T.class", (metadata.getSortAttribute() == null
-                        ? typeTools.voidMirror
-                        : attributes.get(metadata.getSortAttribute()).boxedReturnType))
-                    .addStatement("index = get" + indexNameToClassName(indexName) + "()")
+            //Keys will never be arrays, so we know they are declared types
+            for (var attribute : metadata.getPartitionAttributes()) {
+                if (attributes.get(attribute).returnType instanceof ArrayType) {
+                    throw new CtException("Array cannot be partition or sort key", metadata.getDeclaringElement());
+                }
+            }
+            builder.addCode("case $S:\n", indexName);
+            var expectedTypes = getIndexExpectedKeyTypes(metadata);
+            for (var i = 0; i < parameterNames.size(); i++) {
+                builder.addStatement("expected$L = $T.class", upcaseFirst("", parameterNames.get(i)),
+                    expectedTypes.get(i));
+            }
+            builder.addStatement("index = get" + indexNameToClassName(indexName) + "()")
                     .addStatement("break");
         }
         builder.addCode("default:\n")
                 .addStatement("throw new $T($S + name)", IllegalArgumentException.class,
                         "Unknown index name: ");
         builder.endControlFlow();
-        builder.beginControlFlow("if (((partitionClass != null) && (partitionClass != expectedPartitionClass))"
-                + " || ((sortClass != null) && (sortClass != expectedSortClass)))")
-                .addStatement("throw new $T($S + name + $S + expectedPartitionClass.getSimpleName() + $S + expectedSortClass.getSimpleName() + $S + partitionClass.getSimpleName() + $S + sortClass.getSimpleName())",
-                        IllegalArgumentException.class, "Incorrect key types for index ", ", expected: ", " and ", ", got: ", " and ")
+
+        // A null class means "I don't care", so only check the ones the caller actually passed
+        var condition = parameterNames.stream()
+                .map(name -> "((" + name + " != null) && (" + name + " != expected" + upcaseFirst("", name) + "))")
+                .collect(Collectors.joining("\n|| "));
+        var expectedArgs = parameterNames.stream()
+                .map(name -> "expected" + upcaseFirst("", name))
+                .collect(Collectors.joining(", "));
+        builder.beginControlFlow("if (" + condition + ")")
+                .addStatement("throw new $T($S + name + $S + keyClassNames($L) + $S + keyClassNames($L))",
+                        IllegalArgumentException.class, "Incorrect key types for index ", ", expected: ", expectedArgs,
+                        ", got: ", String.join(", ", parameterNames))
                 .endControlFlow();
         builder.addStatement("return ($T)index", returnT);
     }
 
     /**
+     * Work out every attribute that has to appear in an exclusive start key. That is all of the index's own keys,
+     * plus the table's keys if the index does not already include them, because it takes all of them together to
+     * identify one item. Duplicates are dropped, and the order is stable so that getExclusiveStartKey() and
+     * decodeExclusiveStart() agree.
+     * @param indexPartitionKeyAttributes The attribute names of the index's partition keys, in order
+     * @param indexSortKeyAttribute The attribute name for the index's sort key, or null if there is none
+     * @return The attributes to write, in order
+     */
+    private List<String> getExclusiveStartAttributes(List<String> indexPartitionKeyAttributes,
+                                                     String indexSortKeyAttribute) {
+        var result = new LinkedHashSet<>(indexPartitionKeyAttributes);
+        if (indexSortKeyAttribute != null) {
+            result.add(indexSortKeyAttribute);
+        }
+        result.add(partitionKeyAttribute);
+        if (sortKeyAttribute != null) {
+            result.add(sortKeyAttribute);
+        }
+        return new ArrayList<>(result);
+    }
+
+    /**
      * Build the getExclusiveStart() method
-     * @param indexPartitionKeyAttribute The attribute name for the partition key
+     * @param indexPartitionKeyAttributes The attribute names of the partition keys, in order
      * @param indexSortKeyAttribute The attribute name for the sort key, or null if there is none
      * @return The MethodSpec for getExclusiveStart
      */
-    private MethodSpec buildGetExclusiveStartKeyMethod(String indexPartitionKeyAttribute, String indexSortKeyAttribute) {
+    private MethodSpec buildGetExclusiveStartKeyMethod(List<String> indexPartitionKeyAttributes,
+                                                       String indexSortKeyAttribute) {
         var builder = MethodSpec.methodBuilder("getExclusiveStartKey")
                 .addModifiers(Modifier.PROTECTED)
                 .addAnnotation(Override.class)
                 .returns(String.class)
                 .addParameter(ParameterizedTypeName.get(Map.class, String.class, AttributeValue.class), "item")
                 .addStatement("$T builder = new $T()", StringBuilder.class, StringBuilder.class);
-        // Add our partition key to the start key
-        builder.addStatement(writeGetExclusiveStartStatement(indexPartitionKeyAttribute));
-
-        // If we have a sort key, add it to the start key
-        if (indexSortKeyAttribute != null) {
-            builder.addStatement("builder.append(',')")
-                    .addStatement(writeGetExclusiveStartStatement(indexSortKeyAttribute));
-        }
-
-        // If we are an index, and our table's partition key that isn't our partition or sort keys, then add it
-        if (!partitionKeyAttribute.equals(indexPartitionKeyAttribute) && !partitionKeyAttribute.equals(indexSortKeyAttribute)) {
-            builder.addStatement("builder.append(',')")
-                    .addStatement(writeGetExclusiveStartStatement(partitionKeyAttribute));
-        }
-
-        // If we are an index, and our table has a sort key that isn't our partition or sort keys, then add it
-        if ((sortKeyAttribute != null) && !sortKeyAttribute.equals(indexPartitionKeyAttribute) && !sortKeyAttribute.equals(indexSortKeyAttribute)) {
-            builder.addStatement("builder.append(',')")
-                    .addStatement(writeGetExclusiveStartStatement(sortKeyAttribute));
+        var startAttributes = getExclusiveStartAttributes(indexPartitionKeyAttributes, indexSortKeyAttribute);
+        for (var i = 0; i < startAttributes.size(); i++) {
+            if (i > 0) {
+                builder.addStatement("builder.append(',')");
+            }
+            builder.addStatement(writeGetExclusiveStartStatement(startAttributes.get(i)));
         }
         return builder.addStatement("return builder.toString()").build();
     }
@@ -920,31 +1013,27 @@ public class CtClassGenerator {
 
     /**
      * Build the method that decodes an exclusive start key
-     * @param indexPartitionKeyAttribute Our partition key attribute name
+     * @param indexPartitionKeyAttributes Our partition key attribute names, in order
      * @param indexSortKeyAttribute Our sort key attribute name
      * @return A MethodSpec for decodeExclusiveStart()
      */
-    private MethodSpec buildDecodeExclusiveStartMethod(String indexPartitionKeyAttribute, String indexSortKeyAttribute) {
+    private MethodSpec buildDecodeExclusiveStartMethod(List<String> indexPartitionKeyAttributes,
+                                                       String indexSortKeyAttribute) {
         var avMap = ParameterizedTypeName.get(Map.class, String.class, AttributeValue.class);
         var builder = MethodSpec.methodBuilder("decodeExclusiveStart")
                 .addModifiers(Modifier.PROTECTED)
                 .addAnnotation(Override.class)
                 .returns(avMap)
                 .addParameter(String.class, "exclusiveStart");
-        var numEntries = 1;
         var values = new HashMap<String, Object>();
         values.put("av", AttributeValue.class);
         values.put("m", Map.class);
         var template = new StringBuilder("return $m:T.of(");
-        writeDecodeExclusiveStartStatement(template, values, indexPartitionKeyAttribute, 0);
-        if (indexSortKeyAttribute != null) {
-            writeDecodeExclusiveStartStatement(template, values, indexSortKeyAttribute, numEntries++);
-        }
-        if (!partitionKeyAttribute.equals(indexPartitionKeyAttribute) && !partitionKeyAttribute.equals(indexSortKeyAttribute)) {
-            writeDecodeExclusiveStartStatement(template, values, partitionKeyAttribute, numEntries++);
-        }
-        if ((sortKeyAttribute != null) && !sortKeyAttribute.equals(indexPartitionKeyAttribute) && !sortKeyAttribute.equals(indexSortKeyAttribute)) {
-            writeDecodeExclusiveStartStatement(template, values, sortKeyAttribute, numEntries++);
+        // Must match getExclusiveStartKey()'s ordering exactly - these two are inverses of each other
+        var startAttributes = getExclusiveStartAttributes(indexPartitionKeyAttributes, indexSortKeyAttribute);
+        var numEntries = startAttributes.size();
+        for (var i = 0; i < numEntries; i++) {
+            writeDecodeExclusiveStartStatement(template, values, startAttributes.get(i), i);
         }
         template.append(")");
         return builder
