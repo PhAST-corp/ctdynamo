@@ -882,12 +882,12 @@ public class CtClassGenerator {
      * @throws  CtException When error while building method
      */
     private MethodSpec buildGetIndexMethod() throws CtException {
-        var typeVariables = new ArrayList<TypeVariableName>(IndexMetadata.MAX_PARTITION_KEYS + 1);
+        var typeVariables = new ArrayList<TypeVariableName>();
         for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
             typeVariables.add(TypeVariableName.get("IndexPartition" + (position + 1) + "T"));
         }
         typeVariables.add(TypeVariableName.get("IndexSortT"));
-        var returnTypeArguments = new ArrayList<TypeName>(typeVariables.size() + 1);
+        var returnTypeArguments = new ArrayList<TypeName>();
         returnTypeArguments.add(TypeName.get(itemType.asType()));
         returnTypeArguments.addAll(typeVariables);
         var returnT = ParameterizedTypeName.get(ClassName.get(DynamoIndex.class),
@@ -919,7 +919,7 @@ public class CtClassGenerator {
      * @return The parameter names
      */
     private List<String> getIndexKeyClassParameterNames() {
-        var result = new ArrayList<String>(IndexMetadata.MAX_PARTITION_KEYS + 1);
+        var result = new ArrayList<String>();
         for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
             result.add("partition" + (position + 1) + "Class");
         }
@@ -934,7 +934,7 @@ public class CtClassGenerator {
      * @return The expected types, in the same order as {@link #getIndexKeyClassParameterNames()}
      */
     private List<TypeMirror> getIndexExpectedKeyTypes(IndexMetadata metadata) {
-        var result = new ArrayList<TypeMirror>(IndexMetadata.MAX_PARTITION_KEYS + 1);
+        var result = new ArrayList<TypeMirror>();
         for (var position = 0; position < IndexMetadata.MAX_PARTITION_KEYS; position++) {
             result.add(getIndexPartitionType(metadata, position));
         }
@@ -965,7 +965,7 @@ public class CtClassGenerator {
         var wildcardClass = ParameterizedTypeName.get(ClassName.get(Class.class),
                 WildcardTypeName.subtypeOf(Object.class));
         var parameterNames = getIndexKeyClassParameterNames();
-        var wildcardIndexArguments = new ArrayList<TypeName>(IndexMetadata.MAX_PARTITION_KEYS + 2);
+        var wildcardIndexArguments = new ArrayList<TypeName>();
         wildcardIndexArguments.add(TypeName.get(itemType.asType()));
         for (var i = 0; i < IndexMetadata.MAX_PARTITION_KEYS + 1; i++) {
             wildcardIndexArguments.add(WildcardTypeName.subtypeOf(Object.class));

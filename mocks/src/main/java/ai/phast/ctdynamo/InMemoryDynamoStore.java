@@ -284,7 +284,7 @@ class InMemoryDynamoStore {
      *         whose partition attributes the item does not populate)
      */
     private List<AttributeValue> itemToPartitionKey(Map<String, AttributeValue> item) {
-        var result = new ArrayList<AttributeValue>(partitionKeyAttributes.size());
+        var result = new ArrayList<AttributeValue>();
         for (var attribute : partitionKeyAttributes) {
             var value = item.get(attribute);
             if (value == null) {

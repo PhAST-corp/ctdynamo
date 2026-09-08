@@ -335,7 +335,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
             }
             return list;
         };
-        CompletableFuture<List<T>> result = CompletableFuture.completedFuture(new ArrayList<>(batches.size() * MAX_ITEMS_PER_BATCH));
+        CompletableFuture<List<T>> result = CompletableFuture.completedFuture(new ArrayList<>());
         for (var batch: batches) {
             var request = BatchGetItemRequest.builder().requestItems(batch).build();
             result = result.thenCombine(
@@ -427,7 +427,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     private List<Map<String, KeysAndAttributes>> buildGetBatchesFromItems(Collection<T> collection, boolean consistentRead) {
         var itemList = getListFromCollection(collection);
         int numItems = itemList.size();
-        var result = new ArrayList<Map<String, KeysAndAttributes>>((numItems + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH);
+        var result = new ArrayList<Map<String, KeysAndAttributes>>();
         for (int offset = 0; offset < numItems; offset += MAX_ITEMS_PER_BATCH) {
             result.add(Collections.singletonMap(getTableName(),
                 KeysAndAttributes.builder()
@@ -449,7 +449,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     private List<Map<String, KeysAndAttributes>> buildGetBatchesFromKeys(Collection<Key<PartitionT, Void, Void, Void, SortT>> keys, boolean consistentRead) {
         var keyList = getListFromCollection(keys);
         int numItems = keys.size();
-        var result = new ArrayList<Map<String, KeysAndAttributes>>((numItems + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH);
+        var result = new ArrayList<Map<String, KeysAndAttributes>>();
         for (int offset = 0; offset < numItems; offset += MAX_ITEMS_PER_BATCH) {
             result.add(Collections.singletonMap(getTableName(),
                 KeysAndAttributes.builder()
@@ -1284,7 +1284,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
     private List<Map<String, List<WriteRequest>>> buildDeleteBatchesFromItems(Collection<T> items) {
         var itemList = getListFromCollection(items);
         int numItems = items.size();
-        var result = new ArrayList<Map<String, List<WriteRequest>>>((numItems + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH);
+        var result = new ArrayList<Map<String, List<WriteRequest>>>();
         for (int offset = 0; offset < numItems; offset += MAX_ITEMS_PER_BATCH) {
             result.add(Collections.singletonMap(getTableName(),
                     itemList.subList(offset, Math.min(numItems, offset + MAX_ITEMS_PER_BATCH)).stream()
@@ -1303,7 +1303,7 @@ public abstract class DynamoTable<T, PartitionT, SortT> extends DynamoIndex<T, P
             Collection<Key<PartitionT, Void, Void, Void, SortT>> keys) {
         var keyList = getListFromCollection(keys);
         int numItems = keys.size();
-        var result = new ArrayList<Map<String, List<WriteRequest>>>((numItems + MAX_ITEMS_PER_BATCH - 1) / MAX_ITEMS_PER_BATCH);
+        var result = new ArrayList<Map<String, List<WriteRequest>>>();
         for (int offset = 0; offset < numItems; offset += MAX_ITEMS_PER_BATCH) {
             result.add(Collections.singletonMap(getTableName(),
                     keyList.subList(offset, Math.min(numItems, offset + MAX_ITEMS_PER_BATCH)).stream()

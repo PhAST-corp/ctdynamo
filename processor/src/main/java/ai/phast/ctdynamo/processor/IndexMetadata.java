@@ -57,7 +57,7 @@ class IndexMetadata {
      *         guarantees the list is dense
      */
     public List<String> getPartitionAttributes() {
-        var result = new ArrayList<String>(MAX_PARTITION_KEYS);
+        var result = new ArrayList<String>();
         for (var attribute : partitionAttributes) {
             if (attribute != null) {
                 result.add(attribute);
