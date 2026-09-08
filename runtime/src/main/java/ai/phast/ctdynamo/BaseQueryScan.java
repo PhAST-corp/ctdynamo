@@ -13,7 +13,7 @@ import java.util.stream.Stream;
  * @param <IndexT> The index type we use
  * @param <ThisT> The type returned by fluent functions
  */
-abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?>, ThisT extends BaseQueryScan<T, IndexT, ThisT>> {
+abstract class BaseQueryScan<T, IndexT extends DynamoIndex<T, ?, ?, ?, ?, ?>, ThisT extends BaseQueryScan<T, IndexT, ThisT>> {
 
     /** All expression attribute values */
     private final Map<String, AttributeValue> values = new HashMap<>();

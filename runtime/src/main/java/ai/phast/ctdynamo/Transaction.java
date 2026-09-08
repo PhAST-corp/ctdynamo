@@ -40,7 +40,7 @@ public class Transaction {
 
         /** Unknown error code */
         OTHER
-    };
+    }
 
     /** String constant used in dynamo responses */
     private static final Map<String, ErrorType> CODE_TO_ERROR_TYPE = new HashMap<>();
@@ -110,7 +110,7 @@ public class Transaction {
     public <ItemT, PartitionT, SortT> FailureCheck<ItemT> delete(
         DynamoTable<ItemT, PartitionT, SortT> table, ItemT item, ConditionExpression conditionExpression) {
 
-        return delete(table, table.getPartitionValue(item), table.getSortValue(item), conditionExpression);
+        return delete(table, table.getPartitionValue1(item), table.getSortValue(item), conditionExpression);
     }
 
     /**
@@ -124,10 +124,10 @@ public class Transaction {
      * @param <SortT> The type of the sort key of the table
      */
     public <ItemT, PartitionT, SortT> FailureCheck<ItemT> delete(
-        DynamoTable<ItemT, PartitionT, SortT> table, Key<PartitionT, SortT> key,
+        DynamoTable<ItemT, PartitionT, SortT> table, Key<PartitionT, Void, Void, Void, SortT> key,
         ConditionExpression conditionExpression) {
 
-        return delete(table, key.getPartition(), key.getSort(), conditionExpression);
+        return delete(table, key.getPartition1(), key.getSort(), conditionExpression);
     }
 
     /**
@@ -195,7 +195,7 @@ public class Transaction {
             var attributeName = entry.getKey();
             // Do not add the attribute to the value map if it is one of the keys,
             // or if that attribute is specifically passed in in the expression map
-            if (!attributeName.equals(table.getPartitionKeyAttribute())
+            if (!attributeName.equals(table.getPartitionKeyAttributes().get(0))
                     && !attributeName.equals(table.getSortKeyAttribute())
                     && (expressions == null || !expressions.containsKey(attributeName))) {
                 var valueRef = ":" + attributeName;
@@ -209,7 +209,7 @@ public class Transaction {
         if (attributeNames != null) {
             namesCopy.putAll(attributeNames);
         }
-        return update(table, table.getPartitionValue(item), table.getSortValue(item),
+        return update(table, table.getPartitionValue1(item), table.getSortValue(item),
             conditionExpression, expressionsCopy, valuesCopy, namesCopy);
     }
 

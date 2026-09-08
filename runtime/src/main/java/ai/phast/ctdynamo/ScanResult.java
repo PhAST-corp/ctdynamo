@@ -31,7 +31,7 @@ class ScanResult<T> extends PagedResult<T, ScanResponse> {
      * @param isFiltered A flag telling us whether or not the results may be filtered - that is, whether or not
      *     reads may be ignored
      */
-    ScanResult(DynamoIndex<T, ?, ?> index, ScanRequest.Builder scanBuilder, int limit, boolean prefetch,
+    ScanResult(DynamoIndex<T, ?, ?, ?, ?, ?> index, ScanRequest.Builder scanBuilder, int limit, boolean prefetch,
                int readLimit, int pageSize, boolean isFiltered) {
         super(index, limit, prefetch, pageSize, readLimit, isFiltered);
         this.scanBuilder = scanBuilder;

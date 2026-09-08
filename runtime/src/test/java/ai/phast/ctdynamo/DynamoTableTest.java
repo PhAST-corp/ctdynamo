@@ -162,12 +162,12 @@ public class DynamoTableTest {
     @Test
     public void testGetBatchByKey_shouldBreakUpReq_whenMoreThan25Items() {
         // Setup
-        var keys = new ArrayList<Key<String, String>>();
+        var keys = new ArrayList<Key<String, Void, Void, Void, String>>();
         var expectedResult = new ArrayList<MockItem>();
         var reqItems = new ArrayList<Map<String, AttributeValue>>();
         var respItems = new ArrayList<Map<String, AttributeValue>>();
         for (var i = 0; i < 55; ++i) {
-            keys.add(new Key<>("p" + i, "s" + i));
+            keys.add(Key.of("p" + i, "s" + i));
             expectedResult.add(new MockItem("p" + i, "s" + i, i));
             reqItems.add(Map.of("partition", av("p" + i), "sort", av("s" + i)));
             respItems.add(Map.of("partition", av("p" + i), "sort", av("s" + i), "ival", av(i)));
@@ -232,7 +232,7 @@ public class DynamoTableTest {
         // Verify
         Assertions.assertEquals(expectedResult, result.getItems());
         Assertions.assertEquals(50.0, result.getCapacity());
-        Assertions.assertEquals(List.of(new Key<>("px", "sx"), new Key<>("py", "sy")), result.getUnprocessedValues());
+        Assertions.assertEquals(List.of(Key.of("px", "sx"), Key.of("py", "sy")), result.getUnprocessedValues());
     }
 
     @Test
@@ -310,7 +310,7 @@ public class DynamoTableTest {
         // Verify
         Assertions.assertEquals(expectedResult, result.getItems());
         Assertions.assertEquals(50.0, result.getCapacity());
-        Assertions.assertEquals(List.of(new Key<>("px", "sx"), new Key<>("py", "sy")), result.getUnprocessedValues());
+        Assertions.assertEquals(List.of(Key.of("px", "sx"), Key.of("py", "sy")), result.getUnprocessedValues());
     }
 
     @Test
@@ -813,10 +813,10 @@ public class DynamoTableTest {
     @Test
     public void testDeleteBatchByKey_shouldBreakUpBatch_whenMoreThan25() {
         // Setup
-        var keys = new ArrayList<Key<String, String>>();
+        var keys = new ArrayList<Key<String, Void, Void, Void, String>>();
         var maps = new ArrayList<WriteRequest>();
         for (var i = 0; i < 48; ++i) {
-            keys.add(new Key<>("p" + i, "s" + i));
+            keys.add(Key.of("p" + i, "s" + i));
             maps.add(WriteRequest.builder().deleteRequest(
                 DeleteRequest.builder()
                     .key(Map.of("partition", av("p" + i), "sort", av("s" + i))).build())
@@ -887,7 +887,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(48.0, result.getCapacity());
-        Assertions.assertEquals(List.of(new Key<>("aaa", "bbb"), new Key<>("ccc", "ddd")),
+        Assertions.assertEquals(List.of(Key.of("aaa", "bbb"), Key.of("ccc", "ddd")),
             result.getUnprocessedValues());
     }
 
@@ -1007,7 +1007,7 @@ public class DynamoTableTest {
 
         // Verify
         Assertions.assertEquals(48.0, result.getCapacity());
-        Assertions.assertEquals(List.of(new Key<>("aaa", "bbb"), new Key<>("ccc", "ddd")),
+        Assertions.assertEquals(List.of(Key.of("aaa", "bbb"), Key.of("ccc", "ddd")),
             result.getUnprocessedValues());
     }
 

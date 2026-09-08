@@ -20,9 +20,9 @@ public class QueryTest {
             QueryRequest.builder()
                 .tableName("mock")
                 .scanIndexForward(true)
-                .keyConditionExpression("#partition = :ctdynamo_p")
+                .keyConditionExpression("#partition = :ctdynamo_p1")
                 .expressionAttributeNames(Map.of("#partition", "partition"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder().build());
@@ -54,9 +54,9 @@ public class QueryTest {
             QueryRequest.builder()
                 .tableName("mock")
                 .scanIndexForward(true)
-                .keyConditionExpression("#partition = :ctdynamo_p AND #sort>:ctdynamo_s1")
+                .keyConditionExpression("#partition = :ctdynamo_p1 AND #sort>:ctdynamo_s1")
                 .expressionAttributeNames(Map.of("#partition", "partition", "#sort", "sort"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p"), ":ctdynamo_s1", av("x")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p"), ":ctdynamo_s1", av("x")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder().build());
@@ -78,9 +78,9 @@ public class QueryTest {
                 QueryRequest.builder()
                         .tableName("mock")
                         .scanIndexForward(true)
-                        .keyConditionExpression("#partition = :ctdynamo_p")
+                        .keyConditionExpression("#partition = :ctdynamo_p1")
                         .expressionAttributeNames(Map.of("#partition", "partition"))
-                        .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                        .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                         .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                         .build(),
                 QueryResponse.builder().build());
@@ -102,10 +102,10 @@ public class QueryTest {
             QueryRequest.builder()
                 .tableName("mock")
                 .scanIndexForward(true)
-                .keyConditionExpression("#partition = :ctdynamo_p AND #sort BETWEEN :ctdynamo_s1 AND :ctdynamo_s2")
+                .keyConditionExpression("#partition = :ctdynamo_p1 AND #sort BETWEEN :ctdynamo_s1 AND :ctdynamo_s2")
                 .expressionAttributeNames(Map.of("#partition", "partition", "#sort", "sort"))
                 .expressionAttributeValues(Map.of(
-                    ":ctdynamo_p", av("p"),
+                    ":ctdynamo_p1", av("p"),
                     ":ctdynamo_s1", av("a"),
                     ":ctdynamo_s2", av("z")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
@@ -123,15 +123,39 @@ public class QueryTest {
     }
 
     @Test
+    public void testQuery_shouldBuildEqualityKeyQuery_whenSortEquals() {
+        // Setup
+        var client = new MockClient(
+            QueryRequest.builder()
+                .tableName("mock")
+                .scanIndexForward(true)
+                .keyConditionExpression("#partition = :ctdynamo_p1 AND #sort=:ctdynamo_s1")
+                .expressionAttributeNames(Map.of("#partition", "partition", "#sort", "sort"))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p"), ":ctdynamo_s1", av("x")))
+                .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+                .build(),
+            QueryResponse.builder().build());
+        var table = new MockTable(client, null, "mock");
+
+        // Act
+        var result = table.query("p").sortEquals("x").invoke();
+
+        // Verify
+        Assertions.assertEquals(List.of(), result.stream().collect(Collectors.toList()));
+        Assertions.assertNull(result.getExclusiveStartKey());
+        client.assertDone();
+    }
+
+    @Test
     public void testQuery_shouldBuildKeyQuery_whenUpperBound() {
         // Setup
         var client = new MockClient(
             QueryRequest.builder()
                 .tableName("mock")
                 .scanIndexForward(true)
-                .keyConditionExpression("#partition = :ctdynamo_p AND #sort<=:ctdynamo_s1")
+                .keyConditionExpression("#partition = :ctdynamo_p1 AND #sort<=:ctdynamo_s1")
                 .expressionAttributeNames(Map.of("#partition", "partition", "#sort", "sort"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p"), ":ctdynamo_s1", av("x")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p"), ":ctdynamo_s1", av("x")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder().build());
@@ -154,17 +178,17 @@ public class QueryTest {
                 QueryRequest.builder()
                     .tableName("mock")
                     .scanIndexForward(true)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .expressionAttributeNames(Map.of("#partition", "partition"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 QueryRequest.builder()
                     .tableName("mock")
                     .scanIndexForward(true)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .expressionAttributeNames(Map.of("#partition", "partition"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", DynamoTableTest.av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", DynamoTableTest.av("p")))
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s500")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build()),
@@ -201,9 +225,9 @@ public class QueryTest {
                 .tableName("mock")
                 .scanIndexForward(true)
                 .limit(2)
-                .keyConditionExpression("#partition = :ctdynamo_p")
+                .keyConditionExpression("#partition = :ctdynamo_p1")
                 .expressionAttributeNames(Map.of("#partition", "partition"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder()
@@ -233,9 +257,9 @@ public class QueryTest {
                 .tableName("mock")
                 .scanIndexForward(true)
                 .limit(1)
-                .keyConditionExpression("#partition = :ctdynamo_p")
+                .keyConditionExpression("#partition = :ctdynamo_p1")
                 .expressionAttributeNames(Map.of("#partition", "partition"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder()
@@ -261,9 +285,9 @@ public class QueryTest {
             QueryRequest.builder()
                 .tableName("mock")
                 .scanIndexForward(true)
-                .keyConditionExpression("#partition = :ctdynamo_p")
+                .keyConditionExpression("#partition = :ctdynamo_p1")
                 .expressionAttributeNames(Map.of("#partition", "partition"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", DynamoTableTest.av("p")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", DynamoTableTest.av("p")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder().build());
@@ -285,17 +309,17 @@ public class QueryTest {
                 QueryRequest.builder()
                     .tableName("mock")
                     .scanIndexForward(true)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .expressionAttributeNames(Map.of("#partition", "partition"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 QueryRequest.builder()
                     .tableName("mock")
                     .scanIndexForward(true)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .expressionAttributeNames(Map.of("#partition", "partition"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", DynamoTableTest.av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", DynamoTableTest.av("p")))
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s500")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build()),
@@ -332,9 +356,9 @@ public class QueryTest {
                 .tableName("mock")
                 .scanIndexForward(true)
                 .limit(2)
-                .keyConditionExpression("#partition = :ctdynamo_p")
+                .keyConditionExpression("#partition = :ctdynamo_p1")
                 .expressionAttributeNames(Map.of("#partition", "partition"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder()
@@ -364,9 +388,9 @@ public class QueryTest {
                 .tableName("mock")
                 .scanIndexForward(true)
                 .limit(1)
-                .keyConditionExpression("#partition = :ctdynamo_p")
+                .keyConditionExpression("#partition = :ctdynamo_p1")
                 .expressionAttributeNames(Map.of("#partition", "partition"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder()
@@ -395,20 +419,20 @@ public class QueryTest {
                     .tableName("mock")
                     .scanIndexForward(true)
                     .limit(2)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .filterExpression("attribute_exists(#foo)")
                     .expressionAttributeNames(Map.of("#partition", "partition", "#foo", "foo"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 QueryRequest.builder()
                     .tableName("mock")
                     .scanIndexForward(true)
                     .limit(4)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .filterExpression("attribute_exists(#foo)")
                     .expressionAttributeNames(Map.of("#partition", "partition", "#foo", "foo"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("sss")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build()),
@@ -444,20 +468,20 @@ public class QueryTest {
                     .tableName("mock")
                     .scanIndexForward(true)
                     .limit(8)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .filterExpression("attribute_exists(#foo)")
                     .expressionAttributeNames(Map.of("#partition", "partition", "#foo", "foo"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 QueryRequest.builder()
                     .tableName("mock")
                     .scanIndexForward(true)
                     .limit(6)  // We got 3 in a query of 8, so now we'll query 6 to get the last one
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .filterExpression("attribute_exists(#foo)")
                     .expressionAttributeNames(Map.of("#partition", "partition", "#foo", "foo"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s8")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
@@ -465,10 +489,10 @@ public class QueryTest {
                     .tableName("mock")
                     .scanIndexForward(true)
                     .limit(12)  // Our query of 6 got none, so now we'll go to 12
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .filterExpression("attribute_exists(#foo)")
                     .expressionAttributeNames(Map.of("#partition", "partition", "#foo", "foo"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s9")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build()),
@@ -520,20 +544,20 @@ public class QueryTest {
                     .tableName("mock")
                     .scanIndexForward(true)
                     .limit(8)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .filterExpression("attribute_exists(#foo)")
                     .expressionAttributeNames(Map.of("#partition", "partition", "#foo", "foo"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 QueryRequest.builder()
                     .tableName("mock")
                     .scanIndexForward(true)
                     .limit(5)  // Algorithm wants to read 6 rows to get the last item, but read limit 13 cuts it to 5
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .filterExpression("attribute_exists(#foo)")
                     .expressionAttributeNames(Map.of("#partition", "partition", "#foo", "foo"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s8")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build()),
@@ -577,10 +601,10 @@ public class QueryTest {
                     .tableName("mock")
                     .scanIndexForward(true)
                     .limit(5)
-                    .keyConditionExpression("#partition = :ctdynamo_p")
+                    .keyConditionExpression("#partition = :ctdynamo_p1")
                     .filterExpression("attribute_exists(#foo)")
                     .expressionAttributeNames(Map.of("#partition", "partition", "#foo", "foo"))
-                    .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                    .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                     .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                     .build(),
                 QueryResponse.builder()
@@ -612,9 +636,9 @@ public class QueryTest {
                 .tableName("mock")
                 .scanIndexForward(true)
                 .limit(5)
-                .keyConditionExpression("#partition = :ctdynamo_p")
+                .keyConditionExpression("#partition = :ctdynamo_p1")
                 .expressionAttributeNames(Map.of("#partition", "partition"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),
             QueryResponse.builder()
@@ -654,9 +678,9 @@ public class QueryTest {
             QueryRequest.builder()
                 .tableName("mock")
                 .scanIndexForward(true)
-                .keyConditionExpression("#partition = :ctdynamo_p")
+                .keyConditionExpression("#partition = :ctdynamo_p1")
                 .expressionAttributeNames(Map.of("#partition", "partition"))
-                .expressionAttributeValues(Map.of(":ctdynamo_p", av("p")))
+                .expressionAttributeValues(Map.of(":ctdynamo_p1", av("p")))
                 .exclusiveStartKey(Map.of("partition", av("p"), "sort", av("s")))
                 .returnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
                 .build(),

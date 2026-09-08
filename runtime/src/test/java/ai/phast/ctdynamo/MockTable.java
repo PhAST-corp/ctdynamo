@@ -24,7 +24,7 @@ public class MockTable extends DynamoTable<MockItem, String, String> {
     }
 
     @Override
-    public String getPartitionValue(MockItem value) {
+    public String getPartitionValue1(MockItem value) {
         return value.partition;
     }
 
@@ -34,7 +34,7 @@ public class MockTable extends DynamoTable<MockItem, String, String> {
     }
 
     @Override
-    protected AttributeValue partitionValueToAttributeValue(String partitionValue) {
+    protected AttributeValue partitionValue1ToAttributeValue(String partitionValue) {
         return DynamoTableTest.av(partitionValue);
     }
 
@@ -75,12 +75,16 @@ public class MockTable extends DynamoTable<MockItem, String, String> {
     }
 
     @Override
-    public <SecondaryPartitionT, SecondarySortT> DynamoIndex<MockItem, SecondaryPartitionT, SecondarySortT> getIndex(String name, Class<SecondaryPartitionT> secondaryPartitionClass, Class<SecondarySortT> secondarySortClass) {
+    public <SecondaryPartition1T, SecondaryPartition2T, SecondaryPartition3T, SecondaryPartition4T, SecondarySortT>
+    DynamoIndex<MockItem, SecondaryPartition1T, SecondaryPartition2T, SecondaryPartition3T, SecondaryPartition4T,
+        SecondarySortT> getIndex(String name, Class<SecondaryPartition1T> secondaryPartition1Class,
+        Class<SecondaryPartition2T> secondaryPartition2Class, Class<SecondaryPartition3T> secondaryPartition3Class,
+        Class<SecondaryPartition4T> secondaryPartition4Class, Class<SecondarySortT> secondarySortClass) {
         return null;
     }
 
     @Override
-    protected String getPartitionValue(AttributeValue value) {
+    protected String getPartitionValue1(AttributeValue value) {
         return value.s();
     }
 

@@ -134,7 +134,7 @@ public class ConditionExpression {
      * @return An expression that will fail if there is no item with matching keys
      */
     public static ConditionExpression requirePresent(DynamoTable<?, ?, ?> table) {
-        return requirePresent(table.getPartitionKeyAttribute());
+        return requirePresent(table.getPartitionKeyAttributes().get(0));
     }
 
     /**
@@ -156,7 +156,7 @@ public class ConditionExpression {
      * @return An expression that will fail if there is an item with matching keys
      */
     public static ConditionExpression requireAbsent(DynamoTable<?, ?, ?> table) {
-        return requireAbsent(table.getPartitionKeyAttribute());
+        return requireAbsent(table.getPartitionKeyAttributes().get(0));
     }
 
     /**
